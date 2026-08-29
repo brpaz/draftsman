@@ -17,16 +17,25 @@ import (
 )
 
 // fakeBackend is a minimal backend.Backend double for testing the
-// PR-Reference fallback path — UpsertDraft/Publish aren't exercised by
-// engine.Compute, only ResolvePR is.
+// PR-Reference and Author fallback paths — UpsertDraft/Publish aren't
+// exercised by engine.Compute, only ResolvePR/ResolveAuthor are.
 type fakeBackend struct {
-	resolvePR func(ctx context.Context, sha string) (commit.PRReference, bool, error)
+	resolvePR     func(ctx context.Context, sha string) (commit.PRReference, bool, error)
+	resolveAuthor func(ctx context.Context, sha string) (backend.AuthorReference, bool, error)
 }
 
 func (f *fakeBackend) UpsertDraft(context.Context, backend.UpsertDraftRequest) error { return nil }
 func (f *fakeBackend) Publish(context.Context, string) error                         { return nil }
+func (f *fakeBackend) CommitURL(sha string) string                                   { return "https://example.com/commit/" + sha }
 func (f *fakeBackend) ResolvePR(ctx context.Context, sha string) (commit.PRReference, bool, error) {
 	return f.resolvePR(ctx, sha)
+}
+
+func (f *fakeBackend) ResolveAuthor(ctx context.Context, sha string) (backend.AuthorReference, bool, error) {
+	if f.resolveAuthor == nil {
+		return backend.AuthorReference{}, false, nil
+	}
+	return f.resolveAuthor(ctx, sha)
 }
 
 // runGit runs a git subcommand against dir, failing the test on error.
@@ -425,30 +434,34 @@ func TestCompute_HighestSeverityWins(t *testing.T) {
 	require.Equal(t, "2.0.0", plan.SuggestedVersion, "breaking beats feat and fix")
 }
 
-func TestCompute_NoBumpWorthyEntries_NoSuggestion(t *testing.T) {
+func TestCompute_NoConventionalCommits_NoSuggestion(t *testing.T) {
 	dir := newRepo(t)
 	commitMessage(t, dir, "feat: add login page", 0)
 	tagRepo(t, dir, "v1.0.0")
-	commitMessage(t, dir, "docs: update readme", 1)
+	commitMessage(t, dir, "Merge branch 'foo'", 1)
 
 	plan, err := engine.Compute(context.Background(), dir, config.Default(), nil)
 	require.NoError(t, err)
 
 	require.Equal(t, "1.0.0", plan.PreviousVersion)
-	require.Empty(t, plan.SuggestedVersion, "docs alone doesn't warrant a release")
+	require.Empty(t, plan.SuggestedVersion, "a non-Conventional-Commit message doesn't warrant a release")
 }
 
-func TestCompute_Chore_BumpsPatch(t *testing.T) {
-	dir := newRepo(t)
-	commitMessage(t, dir, "feat: add login page", 0)
-	tagRepo(t, dir, "v1.0.0")
-	commitMessage(t, dir, "chore: bump deps", 1)
+func TestCompute_AnyConventionalType_BumpsAtLeastPatch(t *testing.T) {
+	for _, typ := range []string{"chore", "ci", "test", "refactor", "docs", "style", "perf", "build"} {
+		t.Run(typ, func(t *testing.T) {
+			dir := newRepo(t)
+			commitMessage(t, dir, "feat: add login page", 0)
+			tagRepo(t, dir, "v1.0.0")
+			commitMessage(t, dir, typ+": tidy things up", 1)
 
-	plan, err := engine.Compute(context.Background(), dir, config.Default(), nil)
-	require.NoError(t, err)
+			plan, err := engine.Compute(context.Background(), dir, config.Default(), nil)
+			require.NoError(t, err)
 
-	require.Equal(t, "1.0.0", plan.PreviousVersion)
-	require.Equal(t, "1.0.1", plan.SuggestedVersion, "chore warrants a patch release")
+			require.Equal(t, "1.0.0", plan.PreviousVersion)
+			require.Equal(t, "1.0.1", plan.SuggestedVersion, "%s warrants a patch release", typ)
+		})
+	}
 }
 
 func TestCompute_AttachesPRReferenceFromCommitText(t *testing.T) {
@@ -593,4 +606,50 @@ func TestCompute_NoBackend_NoFallbackAttempted(t *testing.T) {
 
 	sections := soleSections(t, plan)
 	require.Nil(t, sections[0].Entries[0].PR, "no backend means no fallback, same as before this ticket")
+}
+
+func TestCompute_ResolvesAuthorRefWhenBackendSupportsIt(t *testing.T) {
+	dir := newRepo(t)
+	commitMessage(t, dir, "fix: correct typo", 0)
+
+	fake := &fakeBackend{
+		resolvePR: func(context.Context, string) (commit.PRReference, bool, error) {
+			return commit.PRReference{}, false, nil
+		},
+		resolveAuthor: func(context.Context, string) (backend.AuthorReference, bool, error) {
+			return backend.AuthorReference{Login: "brpaz", ProfileURL: "https://github.com/brpaz"}, true, nil
+		},
+	}
+
+	plan, err := engine.Compute(context.Background(), dir, config.Default(), fake)
+	require.NoError(t, err)
+
+	sections := soleSections(t, plan)
+	entry := sections[0].Entries[0]
+	require.NotNil(t, entry.AuthorRef)
+	require.Equal(t, "brpaz", entry.AuthorRef.Login)
+	require.Contains(t, plan.Rendered, "by [@brpaz](https://github.com/brpaz)")
+}
+
+func TestCompute_NoLinkedAccount_FallsBackToPlainAuthorName(t *testing.T) {
+	dir := newRepo(t)
+	commitMessage(t, dir, "fix: correct typo", 0)
+
+	fake := &fakeBackend{
+		resolvePR: func(context.Context, string) (commit.PRReference, bool, error) {
+			return commit.PRReference{}, false, nil
+		},
+		resolveAuthor: func(context.Context, string) (backend.AuthorReference, bool, error) {
+			return backend.AuthorReference{}, false, nil
+		},
+	}
+
+	plan, err := engine.Compute(context.Background(), dir, config.Default(), fake)
+	require.NoError(t, err)
+
+	sections := soleSections(t, plan)
+	entry := sections[0].Entries[0]
+	require.Nil(t, entry.AuthorRef)
+	require.NotEmpty(t, entry.Author, "falls back to the commit's git author name")
+	require.Contains(t, plan.Rendered, "by "+entry.Author)
 }

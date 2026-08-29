@@ -100,6 +100,20 @@ func (c *Client) ResolvePR(_ context.Context, _ string) (commit.PRReference, boo
 	return commit.PRReference{}, false, nil
 }
 
+// CommitURL implements backend.Backend, using baseURL as the instance's
+// web root (same host as the API, just without the "/api/v1" prefix).
+func (c *Client) CommitURL(sha string) string {
+	return fmt.Sprintf("%s/%s/%s/commit/%s", c.baseURL, c.owner, c.repo, sha)
+}
+
+// ResolveAuthor implements backend.Backend. Unlike GitHub's "get a commit"
+// endpoint, no Forgejo endpoint returning a commit's linked account has
+// been verified against a live instance — per ADR-0001, this always
+// reports "not supported" rather than attempting an unverified lookup.
+func (c *Client) ResolveAuthor(_ context.Context, _ string) (backend.AuthorReference, bool, error) {
+	return backend.AuthorReference{}, false, nil
+}
+
 // findReleaseByTag looks for a release matching tag. Draft releases have
 // no underlying git tag yet, so — same as the GitHub/Gitea adapters —
 // this lists releases and filters client-side rather than using a

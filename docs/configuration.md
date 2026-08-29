@@ -132,7 +132,7 @@ Overrides the built-in Go [`text/template`](https://pkg.go.dev/text/template) us
 
 {{end}}{{range .Packages}}{{if .Name}}# {{.Name}}{{if .SuggestedVersion}} ({{.SuggestedVersion}}){{end}}
 {{end}}{{range .Sections}}## {{.Name}}
-{{range .Entries}}- {{.Description}}{{if .PR}} ({{if .PR.Link}}[#{{.PR.Number}}]({{.PR.Link}}){{else}}#{{.PR.Number}}{{end}}){{end}}
+{{range .Entries}}- {{.Description}}{{if .PR}} ({{if .PR.Link}}[#{{.PR.Number}}]({{.PR.Link}}){{else}}#{{.PR.Number}}{{end}}){{end}} by {{if .AuthorRef}}[@{{.AuthorRef.Login}}]({{.AuthorRef.ProfileURL}}){{else}}{{.Author}}{{end}} ({{if .CommitURL}}[{{.ShortSHA}}]({{.CommitURL}}){{else}}{{.ShortSHA}}{{end}})
 {{end}}
 {{end}}{{end}}
 ```
@@ -157,9 +157,15 @@ The root template value is a `Plan`. `{{.Packages}}`, `{{.Sections}}`, and `{{.E
 | `{{.Entries}}[].Type` | string | The commit's Conventional Commit type, e.g. `feat`, `fix`. |
 | `{{.Entries}}[].Scope` | string | The commit's Conventional Commit scope, if any (empty string otherwise). |
 | `{{.Entries}}[].SHA` | string | Full commit SHA. |
+| `{{.Entries}}[].ShortSHA` | string | SHA truncated to git's conventional 7-character abbreviation. |
+| `{{.Entries}}[].Author` | string | The commit's plain git author name (`git log`'s `%an`) — always populated, independent of `AuthorRef`. |
+| `{{.Entries}}[].AuthorRef` | `*AuthorReference` | The author's linked backend account, resolved via a live API call. `nil` when no `Backend` is configured, the backend doesn't support the lookup, or the commit's author has no linked account — guard with `{{if .AuthorRef}}` and fall back to `Author` (see the built-in default template's pattern). Currently only resolved on GitHub. |
+| `{{.Entries}}[].AuthorRef.Login` | string | The linked account's username. |
+| `{{.Entries}}[].AuthorRef.ProfileURL` | string | The linked account's profile URL. |
 | `{{.Entries}}[].PR` | `*PRReference` | `nil` when no PR was resolved — guard with `{{if .PR}}`. |
 | `{{.Entries}}[].PR.Number` | int | Resolved PR number. |
 | `{{.Entries}}[].PR.Link` | string | Resolved PR URL. Empty when the number came from GitHub's `(#N)` squash-merge title extraction, which carries no URL — guard with `{{if .PR.Link}}` before linking it (see the built-in default template's `{{if .PR.Link}}...{{else}}#{{.PR.Number}}{{end}}` pattern). Populated for Gitea/Forgejo's `Reviewed-on:` trailer extraction and GitHub's API fallback. |
+| `{{.Entries}}[].CommitURL` | string | Link to the commit on the backend's web UI. Empty when no `--backend`/`--repo` was configured (e.g. `preview` without those flags) — guard with `{{if .CommitURL}}` (see the built-in default template's pattern). |
 
 ## Full example
 

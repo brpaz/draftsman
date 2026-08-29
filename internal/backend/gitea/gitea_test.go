@@ -195,3 +195,8 @@ func TestResolvePR_AlwaysUnsupported(t *testing.T) {
 	require.False(t, ok)
 	assert.Zero(t, ref)
 }
+
+func TestCommitURL_UsesBaseURLAsWebRoot(t *testing.T) {
+	client := gitea.New("https://gitea.example.com/", "brpaz", "draftsman", "test-token")
+	require.Equal(t, "https://gitea.example.com/brpaz/draftsman/commit/abc123", client.CommitURL("abc123"))
+}

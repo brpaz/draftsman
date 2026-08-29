@@ -200,3 +200,8 @@ func TestResolvePR_AlwaysUnsupported(t *testing.T) {
 	require.False(t, ok)
 	assert.Zero(t, ref)
 }
+
+func TestCommitURL_UsesBaseURLAsWebRoot(t *testing.T) {
+	client := forgejo.New("https://codeberg.org/", "brpaz", "draftsman", "test-token")
+	require.Equal(t, "https://codeberg.org/brpaz/draftsman/commit/abc123", client.CommitURL("abc123"))
+}

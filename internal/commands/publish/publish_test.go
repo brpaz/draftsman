@@ -28,6 +28,12 @@ func (f *fakeBackend) Publish(_ context.Context, tag string) error {
 	return nil
 }
 
+func (f *fakeBackend) CommitURL(string) string { return "" }
+
+func (f *fakeBackend) ResolveAuthor(context.Context, string) (backend.AuthorReference, bool, error) {
+	return backend.AuthorReference{}, false, nil
+}
+
 func (f *fakeBackend) ResolvePR(context.Context, string) (commit.PRReference, bool, error) {
 	return commit.PRReference{}, false, nil
 }

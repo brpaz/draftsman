@@ -224,3 +224,51 @@ func TestResolvePR_NotFound(t *testing.T) {
 	require.NoError(t, err, "a 404 is a normal 'no such commit' result, not an error")
 	require.False(t, ok)
 }
+
+func TestCommitURL_IsGitHubWebLink(t *testing.T) {
+	// The web URL is always github.com, regardless of the API base URL
+	// (WithBaseURL only redirects API calls, e.g. to a test server).
+	client := github.New("brpaz", "draftsman", "test-token", github.WithBaseURL("https://example.invalid"))
+	require.Equal(t, "https://github.com/brpaz/draftsman/commit/abc123", client.CommitURL("abc123"))
+}
+
+func TestResolveAuthor_LinkedAccount(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/repos/brpaz/draftsman/commits/abc123", r.URL.Path)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"author": map[string]any{"login": "brpaz", "html_url": "https://github.com/brpaz"},
+		})
+	}))
+	defer server.Close()
+
+	client := github.New("brpaz", "draftsman", "test-token", github.WithBaseURL(server.URL))
+	ref, ok, err := client.ResolveAuthor(context.Background(), "abc123")
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, backend.AuthorReference{Login: "brpaz", ProfileURL: "https://github.com/brpaz"}, ref)
+}
+
+func TestResolveAuthor_NoLinkedAccount(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"author": nil})
+	}))
+	defer server.Close()
+
+	client := github.New("brpaz", "draftsman", "test-token", github.WithBaseURL(server.URL))
+	ref, ok, err := client.ResolveAuthor(context.Background(), "abc123")
+	require.NoError(t, err)
+	require.False(t, ok)
+	assert.Zero(t, ref)
+}
+
+func TestResolveAuthor_CommitNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := github.New("brpaz", "draftsman", "test-token", github.WithBaseURL(server.URL))
+	_, ok, err := client.ResolveAuthor(context.Background(), "abc123")
+	require.NoError(t, err, "a 404 is a normal 'no such commit' result, not an error")
+	require.False(t, ok)
+}

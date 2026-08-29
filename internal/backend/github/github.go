@@ -161,6 +161,56 @@ func (c *Client) ResolvePR(ctx context.Context, sha string) (commit.PRReference,
 	return commit.PRReference{Number: pulls[0].Number, Link: pulls[0].HTMLURL}, true, nil
 }
 
+// CommitURL implements backend.Backend. GitHub's web UI is always
+// github.com regardless of API base URL (only api.github.com is
+// supported — no Enterprise base-URL override exists for this adapter).
+func (c *Client) CommitURL(sha string) string {
+	return fmt.Sprintf("https://github.com/%s/%s/commit/%s", c.owner, c.repo, sha)
+}
+
+// ResolveAuthor implements backend.Backend using GitHub's "get a commit"
+// endpoint, whose "author" field is the linked GitHub account for the
+// commit's git author email — null when that email isn't tied to any
+// account, in which case ok is false and callers fall back to the plain
+// git author name (ADR-0001).
+func (c *Client) ResolveAuthor(ctx context.Context, sha string) (backend.AuthorReference, bool, error) {
+	url := fmt.Sprintf("%s/repos/%s/%s/commits/%s", c.baseURL, c.owner, c.repo, sha)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return backend.AuthorReference{}, false, err
+	}
+	c.setHeaders(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return backend.AuthorReference{}, false, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return backend.AuthorReference{}, false, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		return backend.AuthorReference{}, false, unexpectedStatus(resp)
+	}
+
+	var payload struct {
+		Author *struct {
+			Login   string `json:"login"`
+			HTMLURL string `json:"html_url"`
+		} `json:"author"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return backend.AuthorReference{}, false, fmt.Errorf("decoding commit %s: %w", sha, err)
+	}
+	if payload.Author == nil {
+		return backend.AuthorReference{}, false, nil
+	}
+
+	return backend.AuthorReference{Login: payload.Author.Login, ProfileURL: payload.Author.HTMLURL}, true, nil
+}
+
 // findReleaseByTag looks for a release matching tag. GitHub's "get release
 // by tag" endpoint doesn't reliably return draft releases (they have no
 // underlying git tag until published), so this lists releases instead and

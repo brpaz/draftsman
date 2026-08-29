@@ -17,13 +17,30 @@ import (
 
 // Entry is one changelog line, derived from a single parsed commit.
 type Entry struct {
-	SHA         string
+	SHA string
+	// ShortSHA is SHA truncated to git's conventional 7-character
+	// abbreviation, for compact display — text/template has no string
+	// slicing of its own to derive this from SHA in a custom template.
+	ShortSHA string
+	// Author is the commit's plain git author name — always populated,
+	// independent of AuthorRef.
+	Author      string
 	Type        string
 	Scope       string
 	Description string
 	// PR is the commit's resolved PR Reference, or nil when none was
 	// found — enrichment only, never required (ADR-0001, ADR-0003).
 	PR *commit.PRReference
+	// AuthorRef is the commit author's linked backend account, or nil when
+	// unresolved (no Backend, unsupported backend, or no linked account) —
+	// enrichment only, template authors should fall back to Author.
+	AuthorRef *backend.AuthorReference
+	// CommitURL links to the commit on the backend's web UI. Empty when be
+	// is nil (ADR-0001: enrichment only, never required for an Entry to
+	// exist) — Backend.CommitURL is pure string formatting, so it's always
+	// populated when a Backend is available, unlike PR which depends on a
+	// live lookup succeeding.
+	CommitURL string
 }
 
 // Section is a named group of Entries (e.g. "Features", "Bug Fixes").
@@ -286,7 +303,20 @@ func processCommit(ctx context.Context, be backend.Backend, c git.Commit, cfg *c
 		section = otherSection
 	}
 
-	entry := Entry{SHA: c.SHA, Type: parsed.Type, Scope: parsed.Scope, Description: parsed.Description}
+	entry := Entry{
+		SHA:         c.SHA,
+		ShortSHA:    shortSHA(c.SHA),
+		Author:      c.AuthorName,
+		Type:        parsed.Type,
+		Scope:       parsed.Scope,
+		Description: parsed.Description,
+	}
+	if be != nil {
+		entry.CommitURL = be.CommitURL(c.SHA)
+		if resolved, found, err := be.ResolveAuthor(ctx, c.SHA); err == nil && found {
+			entry.AuthorRef = &resolved
+		}
+	}
 
 	pr, ok := commit.ExtractPRReference(c.Message)
 	if !ok && be != nil {
@@ -310,19 +340,27 @@ func processCommit(ctx context.Context, be backend.Backend, c git.Commit, cfg *c
 	return processedCommit{Section: section, Entry: entry, Bump: bumpFor(parsed)}, true
 }
 
+// shortSHA truncates sha to git's conventional 7-character abbreviation.
+func shortSHA(sha string) string {
+	if len(sha) <= 7 {
+		return sha
+	}
+	return sha[:7]
+}
+
 // bumpFor returns the SemVer severity a single parsed commit warrants.
 // Tied to the literal Conventional Commit type/breaking marker, independent
-// of how cfg.Categories relabels types for display.
+// of how cfg.Categories relabels types for display. Every Conventional
+// Commit type warrants at least a patch release — feat and a breaking
+// marker are the only types that warrant more.
 func bumpFor(parsed commit.ParsedCommit) version.Bump {
 	switch {
 	case parsed.Breaking:
 		return version.BumpMajor
 	case parsed.Type == "feat":
 		return version.BumpMinor
-	case parsed.Type == "fix", parsed.Type == "chore":
-		return version.BumpPatch
 	default:
-		return version.BumpNone
+		return version.BumpPatch
 	}
 }
 

@@ -12,8 +12,9 @@ import (
 // Commit is a single commit as read from git log, oldest fields only —
 // callers parse Message themselves (see internal/commit).
 type Commit struct {
-	SHA     string
-	Message string
+	SHA        string
+	AuthorName string
+	Message    string
 }
 
 const fieldSep = "\x1f"
@@ -32,7 +33,7 @@ func Log(ctx context.Context, repoPath, since string) ([]Commit, error) {
 		rangeArg = since + "..HEAD"
 	}
 
-	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "log", "-z", "--pretty=format:%H"+fieldSep+"%B", rangeArg)
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "log", "-z", "--pretty=format:%H"+fieldSep+"%an"+fieldSep+"%B", rangeArg)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -52,13 +53,18 @@ func Log(ctx context.Context, repoPath, since string) ([]Commit, error) {
 		if rec == "" {
 			continue
 		}
-		sha, message, found := strings.Cut(rec, fieldSep)
+		sha, rest, found := strings.Cut(rec, fieldSep)
+		if !found {
+			continue
+		}
+		author, message, found := strings.Cut(rest, fieldSep)
 		if !found {
 			continue
 		}
 		commits = append(commits, Commit{
-			SHA:     sha,
-			Message: strings.TrimSuffix(message, "\n"),
+			SHA:        sha,
+			AuthorName: author,
+			Message:    strings.TrimSuffix(message, "\n"),
 		})
 	}
 	return commits, nil
