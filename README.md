@@ -37,11 +37,11 @@ docker run --rm -v "$(pwd):/repo" -w /repo ghcr.io/brpaz/draftsman:latest previe
 
 Requires `git` on `PATH`; a backend API token is only needed for `draft`/`publish`, not `preview`.
 
-Prebuilt binaries, prerequisites, and every install method in full: **[docs/installation.md](docs/installation.md)**.
+Prebuilt binaries, prerequisites, and every install method in full: **[Installation](https://brpaz.github.io/draftsman/installation/)**.
 
 ## 🔌 Provider setup
 
-GitHub, Gitea, and Forgejo all work behind one common `--backend` flag. Token setup, `--base-url`, and CI examples per provider: **[docs/providers/](docs/providers/)**.
+GitHub, Gitea, and Forgejo all work behind one common `--backend` flag. Token setup, `--base-url`, and CI examples per provider: **[Provider setup](https://brpaz.github.io/draftsman/providers/)**.
 
 ## Usage
 
@@ -125,7 +125,7 @@ draftsman draft --backend github --token "$GITHUB_TOKEN" --repo owner/repo
 draftsman publish --backend github --token "$GITHUB_TOKEN" --repo owner/repo --version 1.2.0
 ```
 
-Full flag reference (including env var equivalents, `--package`, and multi-mode behavior): [docs/cli.md](docs/cli.md).
+Full flag reference (including env var equivalents, `--package`, and multi-mode behavior): [CLI reference](https://brpaz.github.io/draftsman/cli/).
 
 ### Configuration
 
@@ -150,18 +150,18 @@ skip-changelog-trailer: Skip-Changelog
 tag-format: "{{package}}/v{{version}}"
 ```
 
-Full field reference and the built-in default template: [docs/configuration.md](docs/configuration.md).
+Full field reference and the built-in default template: [Configuration](https://brpaz.github.io/draftsman/configuration/).
 
 ## 📚 Documentation
 
-Full documentation, including architecture and design decisions, lives under [`docs/`](docs/) and is published as a static site (built with [Zensical](https://zensical.org/)):
+Full documentation, including architecture and design decisions, lives under [`docs/`](docs/) and is published as a static site at **[brpaz.github.io/draftsman](https://brpaz.github.io/draftsman/)** (built with [Zensical](https://zensical.org/)):
 
-- [Installation](docs/installation.md) — prerequisites and every install method in detail.
-- [Configuration](docs/configuration.md) — full `.draftsman.yml` reference.
-- [CLI reference](docs/cli.md) — every command, flag, and environment variable.
-- [Provider setup](docs/providers/) — GitHub, Gitea, Forgejo: tokens, `--base-url`, CI examples.
-- [Git Workflows](docs/workflows.md) — trunk-based, GitHub Flow, Git Flow.
-- [Development](docs/development/) — environment setup, [architecture](docs/development/architecture.md), and the [ADRs](docs/adr/) behind PR linkage, the continuous-draft model, commit-based entries, and single vs multi release mode.
+- [Installation](https://brpaz.github.io/draftsman/installation/) — prerequisites and every install method in detail.
+- [Configuration](https://brpaz.github.io/draftsman/configuration/) — full `.draftsman.yml` reference.
+- [CLI reference](https://brpaz.github.io/draftsman/cli/) — every command, flag, and environment variable.
+- [Provider setup](https://brpaz.github.io/draftsman/providers/) — GitHub, Gitea, Forgejo: tokens, `--base-url`, CI examples.
+- [Git Workflows](https://brpaz.github.io/draftsman/workflows/) — trunk-based, GitHub Flow, Git Flow.
+- [Development](https://brpaz.github.io/draftsman/development/) — environment setup, [architecture](https://brpaz.github.io/draftsman/development/architecture/), and the ADRs behind [PR linkage](https://brpaz.github.io/draftsman/adr/0001-pr-linkage-strategy/), the [continuous-draft model](https://brpaz.github.io/draftsman/adr/0002-continuous-draft-model/), [commit-based entries](https://brpaz.github.io/draftsman/adr/0003-commit-based-entries/), and [single vs multi release mode](https://brpaz.github.io/draftsman/adr/0004-single-vs-multi-release-mode/).
 
 Coming from [release-drafter](https://github.com/release-drafter/release-drafter)? See the [migration guide](https://brpaz.github.io/draftsman/migrating/from-release-drafter/), or let an agent do the translation — a [Claude Code skill](skills/migrate-from-release-drafter/) is included:
 
