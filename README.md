@@ -1,9 +1,12 @@
 # draftsman
 
+<p align="center">
+
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/brpaz/draftsman?style=for-the-badge)
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/brpaz/draftsman/ci.yml?branch=main&style=for-the-badge)
-![Go Report Card](https://goreportcard.com/badge/github.com/brpaz/draftsman?style=for-the-badge)
 ![License](https://img.shields.io/github/license/brpaz/draftsman?style=for-the-badge)
+
+</p>
 
 > CLI tool that generates release notes from Conventional Commits, maintaining a continuously-updated draft release across GitHub, Gitea, and Forgejo
 
