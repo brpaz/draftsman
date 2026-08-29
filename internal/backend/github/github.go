@@ -56,6 +56,7 @@ func New(owner, repo, token string, opts ...Option) *Client {
 type release struct {
 	ID      int64  `json:"id"`
 	TagName string `json:"tag_name"`
+	Name    string `json:"name"`
 	Draft   bool   `json:"draft"`
 }
 
@@ -214,7 +215,19 @@ func (c *Client) ResolveAuthor(ctx context.Context, sha string) (backend.AuthorR
 // findReleaseByTag looks for a release matching tag. GitHub's "get release
 // by tag" endpoint doesn't reliably return draft releases (they have no
 // underlying git tag until published), so this lists releases instead and
-// filters client-side — the only correct way to find an existing draft.
+// filters client-side.
+//
+// A draft release's tag_name is NOT what was requested at creation time —
+// until the underlying git tag actually exists (i.e. until publish), GitHub
+// silently rewrites it to a random "untagged-<hash>" placeholder, so
+// matching on tag_name alone never finds an existing draft and UpsertDraft
+// creates a new one on every call instead of reusing it. Name isn't
+// mangled this way, and createDraft/updateRelease always set it to req.Tag
+// (releaseName falls back to Tag when no explicit Name is given, and
+// nothing in this codebase supplies one), so a draft is also matched by
+// Draft==true && Name==tag as a fallback. Once the release is published
+// (a real tag exists), tag_name reverts to the real value and the primary
+// match applies again.
 func (c *Client) findReleaseByTag(ctx context.Context, tag string) (*release, error) {
 	for page := 1; page <= maxListPages; page++ {
 		releases, err := c.listReleasesPage(ctx, page)
@@ -225,7 +238,7 @@ func (c *Client) findReleaseByTag(ctx context.Context, tag string) (*release, er
 			return nil, nil
 		}
 		for _, r := range releases {
-			if r.TagName == tag {
+			if r.TagName == tag || (r.Draft && r.Name == tag) {
 				return &r, nil
 			}
 		}

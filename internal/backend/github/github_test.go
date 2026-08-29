@@ -82,6 +82,43 @@ func TestUpsertDraft_UpdatesWhenPresent(t *testing.T) {
 	assert.Equal(t, "## Bug Fixes\n- correct typo\n", patchBody["body"])
 }
 
+func TestUpsertDraft_FindsExistingDraftByName_WhenTagNameIsGitHubsUntaggedPlaceholder(t *testing.T) {
+	var patchBody map[string]any
+	patched := false
+	posted := false
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/brpaz/draftsman/releases":
+			w.Header().Set("Content-Type", "application/json")
+			// GitHub rewrites tag_name to a random "untagged-<hash>"
+			// placeholder for a draft whose tag doesn't exist yet — name
+			// stays what was requested, so that's the only reliable match.
+			_, _ = w.Write([]byte(`[{"id": 42, "tag_name": "untagged-abc123", "name": "v1.0.0", "draft": true}]`))
+		case r.Method == http.MethodPatch && r.URL.Path == "/repos/brpaz/draftsman/releases/42":
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&patchBody))
+			patched = true
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 42, "tag_name": "untagged-abc123", "name": "v1.0.0", "draft": true}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/repos/brpaz/draftsman/releases":
+			posted = true
+			w.WriteHeader(http.StatusCreated)
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := github.New("brpaz", "draftsman", "test-token", github.WithBaseURL(server.URL))
+	err := client.UpsertDraft(context.Background(), backend.UpsertDraftRequest{
+		Tag: "v1.0.0", Body: "## Bug Fixes\n- correct typo\n",
+	})
+	require.NoError(t, err)
+
+	require.True(t, patched, "the existing draft should be found by name and updated, not duplicated")
+	require.False(t, posted, "no new release should be created when a matching draft already exists")
+}
+
 func TestUpsertDraft_RefusesToModifyPublishedRelease(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
