@@ -189,6 +189,39 @@ func TestPublish_FlipsDraftToPublished(t *testing.T) {
 
 	require.True(t, patched)
 	assert.Equal(t, false, patchBody["draft"])
+	assert.Equal(t, "v1.0.0", patchBody["tag_name"])
+}
+
+func TestPublish_ExplicitlySetsTagName_OverridingGitHubsUntaggedPlaceholder(t *testing.T) {
+	var patchBody map[string]any
+	patched := false
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/brpaz/draftsman/releases":
+			w.Header().Set("Content-Type", "application/json")
+			// A draft whose tag doesn't exist yet has this placeholder as
+			// its stored tag_name (see findReleaseByTag) — publishing must
+			// not just flip draft:false and let GitHub tag the release
+			// with the placeholder itself.
+			_, _ = w.Write([]byte(`[{"id": 7, "tag_name": "untagged-abc123", "name": "v1.0.0", "draft": true}]`))
+		case r.Method == http.MethodPatch && r.URL.Path == "/repos/brpaz/draftsman/releases/7":
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&patchBody))
+			patched = true
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": 7, "tag_name": "v1.0.0", "draft": false}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := github.New("brpaz", "draftsman", "test-token", github.WithBaseURL(server.URL))
+	err := client.Publish(context.Background(), "v1.0.0")
+	require.NoError(t, err)
+
+	require.True(t, patched)
+	assert.Equal(t, "v1.0.0", patchBody["tag_name"], "must send the real tag, not GitHub's untagged- placeholder")
 }
 
 func TestPublish_AlreadyPublishedIsIdempotent(t *testing.T) {

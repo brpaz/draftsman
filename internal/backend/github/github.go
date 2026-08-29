@@ -81,6 +81,13 @@ func (c *Client) UpsertDraft(ctx context.Context, req backend.UpsertDraftRequest
 // have none yet), pointed at target_commitish — left unset here, so it
 // defaults to the repository's default branch HEAD at publish time, exactly
 // what the caller expects "publish" to mean.
+//
+// The PATCH must explicitly set tag_name to the real tag: a draft's stored
+// tag_name is GitHub's own "untagged-<hash>" placeholder (see
+// findReleaseByTag) until a real tag exists, and that placeholder is
+// sticky — flipping draft:false without also resupplying tag_name creates
+// the tag using the placeholder string itself, not the one originally
+// requested at draft time.
 func (c *Client) Publish(ctx context.Context, tag string) error {
 	existing, err := c.findReleaseByTag(ctx, tag)
 	if err != nil {
@@ -93,11 +100,11 @@ func (c *Client) Publish(ctx context.Context, tag string) error {
 		// Already published — publish is idempotent on repeated runs.
 		return nil
 	}
-	return c.publishRelease(ctx, existing.ID)
+	return c.publishRelease(ctx, existing.ID, tag)
 }
 
-func (c *Client) publishRelease(ctx context.Context, id int64) error {
-	payload, err := json.Marshal(map[string]any{"draft": false})
+func (c *Client) publishRelease(ctx context.Context, id int64, tag string) error {
+	payload, err := json.Marshal(map[string]any{"draft": false, "tag_name": tag})
 	if err != nil {
 		return err
 	}
