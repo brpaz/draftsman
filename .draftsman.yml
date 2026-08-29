@@ -3,14 +3,27 @@
 # Dogfooding: this repo drafts its own release notes with draftsman instead
 # of release-drafter. See .github/workflows/draftsman.yml and
 # docs/migrating/from-release-drafter.md for the translation this was based
-# on. mode/tag-format/template are all left at draftsman's built-in defaults
-# (single mode, "v{{version}}", built-in template) — this repo is a single
-# package, and "v"-prefixed tags match the composite Action's own
-# version-pinning convention (`uses: brpaz/draftsman@v1`).
+# on. mode/tag-format are left at draftsman's built-in defaults (single
+# mode, "v{{version}}") — this repo is a single package, and "v"-prefixed
+# tags match the composite Action's own version-pinning convention
+# (`uses: brpaz/draftsman@v1`).
 #
 # The scope-specific fix/security and chore/deps rules below replicate the
 # old release-drafter-config.yml's label-based "Security"/"Dependency
 # Updates" sections, which type-only categories couldn't express.
+
+# The built-in default template opens with a "# {{.SuggestedVersion}}"
+# heading — dropped here because .github/workflows/update-changelog.yml
+# feeds the release body straight into CHANGELOG.md under its own
+# "## {version} - {date}" heading, which duplicated the version right
+# below it otherwise. Everything else matches the built-in default
+# verbatim (see docs/configuration.md#template).
+template: |
+  {{range .Packages}}{{if .Name}}# {{.Name}}{{if .SuggestedVersion}} ({{.SuggestedVersion}}){{end}}
+  {{end}}{{range .Sections}}## {{.Name}}
+  {{range .Entries}}- {{.Description}}{{if .PR}} ({{if .PR.Link}}[#{{.PR.Number}}]({{.PR.Link}}){{else}}#{{.PR.Number}}{{end}}){{end}} by {{if .AuthorRef}}[@{{.AuthorRef.Login}}]({{.AuthorRef.ProfileURL}}){{else}}{{.Author}}{{end}} ({{if .CommitURL}}[{{.ShortSHA}}]({{.CommitURL}}){{else}}{{.ShortSHA}}{{end}})
+  {{end}}
+  {{end}}{{end}}
 
 categories:
   - type: fix
