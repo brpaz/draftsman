@@ -6,7 +6,7 @@
 import "github.com/brpaz/draftsman/internal/backend"
 ```
 
-Package backend defines the interface every git hosting adapter \(GitHub, Gitea, Forgejo\) implements identically.
+Package backend defines the interface every git hosting adapter \(GitHub, GitLab, Gitea, Forgejo\) implements identically.
 
 ## Index
 

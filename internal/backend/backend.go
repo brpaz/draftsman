@@ -1,5 +1,5 @@
 // Package backend defines the interface every git hosting adapter (GitHub,
-// Gitea, Forgejo) implements identically.
+// GitLab, Gitea, Forgejo) implements identically.
 package backend
 
 import (

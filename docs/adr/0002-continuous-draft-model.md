@@ -5,3 +5,5 @@ Tools like `git-cliff` are stateless: invoke against a commit range, print notes
 ## Consequences
 
 Generation and publishing are separate concerns — `draftsman draft` upserts the draft, publishing is a distinct step (backend UI or `draftsman publish`). A purely stateless tool would not need this split, but would also lose the "draft is always current" property that was the actual goal.
+
+**Update:** GitLab has no `draft` flag on releases — this ADR's "portable across all backends without compromise" claim held for the original three, not for GitLab's adapter (added later), which approximates a draft via the "Upcoming Release" mechanism instead. See [ADR-0005](0005-gitlab-upcoming-release-as-draft.md).

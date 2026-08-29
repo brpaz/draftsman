@@ -7,10 +7,10 @@ All three commands read the current working directory as the git repository — 
 | Flag | Env var | Default | Meaning |
 | --- | --- | --- | --- |
 | `--config` | — | `.draftsman.yml` | Path to the config file. A missing file at the *default* path silently falls back to built-in defaults; an explicitly-passed `--config` path that's missing is an error. |
-| `--backend` | `DRAFTSMAN_BACKEND` | — | `github`, `gitea`, or `forgejo`. Required for `draft`/`publish`; optional for `preview` (enables PR enrichment only). |
+| `--backend` | `DRAFTSMAN_BACKEND` | — | `github`, `gitlab`, `gitea`, or `forgejo`. Required for `draft`/`publish`; optional for `preview` (enables PR enrichment only). |
 | `--token` | `DRAFTSMAN_TOKEN` | — | Backend API token. Same required/optional split as `--backend`. |
-| `--repo` | `DRAFTSMAN_REPO`, `GITHUB_REPOSITORY` | — | Target repository as `owner/repo`. `GITHUB_REPOSITORY` is GitHub Actions' own auto-injected env var, so no explicit input is needed in a GitHub Actions workflow. |
-| `--base-url` | `DRAFTSMAN_BASE_URL` | — | Backend instance API base URL. Ignored by GitHub (fixed `api.github.com`); **required** for `gitea`/`forgejo`. |
+| `--repo` | `DRAFTSMAN_REPO`, `GITHUB_REPOSITORY`, `CI_PROJECT_PATH` | — | Target repository as `owner/repo`. `GITHUB_REPOSITORY`/`CI_PROJECT_PATH` are GitHub Actions' and GitLab CI's own auto-injected env vars, so no explicit input is needed in either. |
+| `--base-url` | `DRAFTSMAN_BASE_URL` | — | Backend instance API base URL. Ignored by GitHub (fixed `api.github.com`); defaults to `gitlab.com` for `gitlab`; **required** for `gitea`/`forgejo`. |
 | `--package` | — | — | Scope the operation to a single Package (multi mode only). |
 
 ## `draftsman preview`

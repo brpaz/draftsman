@@ -1,5 +1,5 @@
 name: "Draftsman"
-description: "Continuously-updated draft release notes from Conventional Commits, published across GitHub, Gitea, and Forgejo."
+description: "Continuously-updated draft release notes from Conventional Commits, published across GitHub, GitLab, Gitea, and Forgejo."
 author: "brpaz"
 
 branding:
@@ -19,7 +19,7 @@ inputs:
     required: false
     default: ""
   backend:
-    description: "Git backend: github, gitea, or forgejo. Required for draft/publish."
+    description: "Git backend: github, gitlab, gitea, or forgejo. Required for draft/publish."
     required: false
     default: ""
   package:

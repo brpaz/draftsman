@@ -20,7 +20,7 @@ func ConfigFlag() *cli.StringFlag {
 func BackendFlag(required bool) *cli.StringFlag {
 	return &cli.StringFlag{
 		Name:     "backend",
-		Usage:    "git backend: github, gitea, or forgejo",
+		Usage:    "git backend: github, gitlab, gitea, or forgejo",
 		Required: required,
 		Sources:  cli.EnvVars("DRAFTSMAN_BACKEND"),
 	}
@@ -47,14 +47,16 @@ func PackageFlag() *cli.StringFlag {
 
 // RepoFlag identifies the target repository as "owner/repo". Required
 // alongside BackendFlag/TokenFlag for any command that talks to a backend
-// API. GITHUB_REPOSITORY is GitHub Actions' own auto-injected env var, in
-// the same "owner/repo" form, so it works as a source with no extra setup.
+// API. GITHUB_REPOSITORY and CI_PROJECT_PATH are GitHub Actions' and
+// GitLab CI's own auto-injected env vars, in the same "owner/repo" form
+// (CI_PROJECT_PATH includes any nested group), so either works as a source
+// with no extra setup.
 func RepoFlag(required bool) *cli.StringFlag {
 	return &cli.StringFlag{
 		Name:     "repo",
 		Usage:    "target repository, in owner/repo form",
 		Required: required,
-		Sources:  cli.EnvVars("DRAFTSMAN_REPO", "GITHUB_REPOSITORY"),
+		Sources:  cli.EnvVars("DRAFTSMAN_REPO", "GITHUB_REPOSITORY", "CI_PROJECT_PATH"),
 	}
 }
 
@@ -62,11 +64,12 @@ func RepoFlag(required bool) *cli.StringFlag {
 // it (fixed api.github.com); self-hosted backends (gitea, forgejo) require
 // it — ResolveBackend enforces that, since it can't be expressed as a
 // static per-flag Required (whether it's required depends on --backend's
-// value, known only at runtime).
+// value, known only at runtime). GitLab defaults to gitlab.com when unset,
+// same as GitHub, but accepts an override for a self-hosted instance.
 func BaseURLFlag() *cli.StringFlag {
 	return &cli.StringFlag{
 		Name:    "base-url",
-		Usage:   "backend API base URL (required for gitea/forgejo, e.g. https://gitea.example.com)",
+		Usage:   "backend API base URL (required for gitea/forgejo, optional for gitlab, e.g. https://gitea.example.com)",
 		Sources: cli.EnvVars("DRAFTSMAN_BASE_URL"),
 	}
 }

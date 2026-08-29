@@ -44,7 +44,7 @@ BackendFlag selects which git backend to talk to. Required when set to true \(dr
 func BaseURLFlag() *cli.StringFlag
 ```
 
-BaseURLFlag is the git hosting instance's API base URL. GitHub ignores it \(fixed api.github.com\); self\-hosted backends \(gitea, forgejo\) require it — ResolveBackend enforces that, since it can't be expressed as a static per\-flag Required \(whether it's required depends on \-\-backend's value, known only at runtime\).
+BaseURLFlag is the git hosting instance's API base URL. GitHub ignores it \(fixed api.github.com\); self\-hosted backends \(gitea, forgejo\) require it — ResolveBackend enforces that, since it can't be expressed as a static per\-flag Required \(whether it's required depends on \-\-backend's value, known only at runtime\). GitLab defaults to gitlab.com when unset, same as GitHub, but accepts an override for a self\-hosted instance.
 
 <a name="ConfigFlag"></a>
 ## func ConfigFlag
@@ -71,7 +71,7 @@ PackageFlag scopes an operation to a single package in multi mode. Unused in sin
 func RepoFlag(required bool) *cli.StringFlag
 ```
 
-RepoFlag identifies the target repository as "owner/repo". Required alongside BackendFlag/TokenFlag for any command that talks to a backend API. GITHUB\_REPOSITORY is GitHub Actions' own auto\-injected env var, in the same "owner/repo" form, so it works as a source with no extra setup.
+RepoFlag identifies the target repository as "owner/repo". Required alongside BackendFlag/TokenFlag for any command that talks to a backend API. GITHUB\_REPOSITORY and CI\_PROJECT\_PATH are GitHub Actions' and GitLab CI's own auto\-injected env vars, in the same "owner/repo" form \(CI\_PROJECT\_PATH includes any nested group\), so either works as a source with no extra setup.
 
 <a name="ResolveBackend"></a>
 ## func ResolveBackend

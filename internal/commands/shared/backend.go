@@ -10,6 +10,7 @@ import (
 	"github.com/brpaz/draftsman/internal/backend/forgejo"
 	"github.com/brpaz/draftsman/internal/backend/gitea"
 	"github.com/brpaz/draftsman/internal/backend/github"
+	"github.com/brpaz/draftsman/internal/backend/gitlab"
 )
 
 // ResolveBackend constructs a Backend from cmd's --backend/--token/--repo
@@ -56,9 +57,15 @@ func ResolveBackend(cmd *cli.Command, required bool) (backend.Backend, error) {
 			return nil, nil
 		}
 		return forgejo.New(baseURL, owner, repoName, token), nil
+	case "gitlab":
+		baseURL := cmd.String("base-url")
+		if baseURL == "" {
+			baseURL = gitlab.DefaultBaseURL
+		}
+		return gitlab.New(baseURL, owner, repoName, token), nil
 	default:
 		if required {
-			return nil, fmt.Errorf("unsupported backend %q (github, gitea, and forgejo are implemented)", name)
+			return nil, fmt.Errorf("unsupported backend %q (github, gitlab, gitea, and forgejo are implemented)", name)
 		}
 		return nil, nil
 	}

@@ -8,13 +8,13 @@
 
 </p>
 
-> CLI tool that generates release notes from Conventional Commits, maintaining a continuously-updated draft release across GitHub, Gitea, and Forgejo
+> CLI tool that generates release notes from Conventional Commits, maintaining a continuously-updated draft release across GitHub, GitLab, Gitea, and Forgejo
 
 ## ✨ Features
 
 - **Conventional Commits parsing** — one changelog entry per commit, no PR metadata required, so it works identically for squash-merge, rebase-merge, and direct-push workflows.
 - **Continuous draft releases** — a live draft release is upserted on every push to the default branch (mirroring Release Drafter's model), finalized later via `draftsman publish` or the backend's own UI.
-- **Multi-backend** — GitHub, Gitea, and Forgejo behind one common interface; switch backend with a single flag.
+- **Multi-backend** — GitHub, GitLab, Gitea, and Forgejo behind one common interface; switch backend with a single flag.
 - **PR reference enrichment** — best-effort PR linkage extracted from commit-message text (squash-merge trailers), with a live API fallback on GitHub where it's reliable.
 - **Monorepo aware** — map changed file paths to named Packages, each with its own changelog section (`single` mode) or its own independent Draft Release, version, and tag (`multi` mode).
 - **Automatic SemVer** — the next version is computed from the Conventional Commit types in range (breaking → major, `feat` → minor, `fix`/other → patch); override it explicitly when needed.
@@ -41,7 +41,7 @@ Prebuilt binaries, prerequisites, and every install method in full: **[Installat
 
 ## 🔌 Provider setup
 
-GitHub, Gitea, and Forgejo all work behind one common `--backend` flag. Token setup, `--base-url`, and CI examples per provider: **[Provider setup](https://brpaz.github.io/draftsman/providers/)**.
+GitHub, GitLab, Gitea, and Forgejo all work behind one common `--backend` flag. Token setup, `--base-url`, and CI examples per provider: **[Provider setup](https://brpaz.github.io/draftsman/providers/)**.
 
 ## Usage
 
@@ -107,7 +107,7 @@ jobs:
 
 `--repo` needs no input — it's read from the `GITHUB_REPOSITORY` environment variable GitHub Actions already sets on every runner.
 
-For Gitea Actions and Forgejo Actions workflow examples (no composite Action exists for those — the binary/Docker image is used directly), see the provider guides linked above.
+For GitLab CI, Gitea Actions, and Forgejo Actions workflow examples (no composite Action exists for those — the binary/Docker image is used directly), see the provider guides linked above.
 
 ### CLI
 
@@ -159,9 +159,9 @@ Full documentation, including architecture and design decisions, lives under [`d
 - [Installation](https://brpaz.github.io/draftsman/installation/) — prerequisites and every install method in detail.
 - [Configuration](https://brpaz.github.io/draftsman/configuration/) — full `.draftsman.yml` reference.
 - [CLI reference](https://brpaz.github.io/draftsman/cli/) — every command, flag, and environment variable.
-- [Provider setup](https://brpaz.github.io/draftsman/providers/) — GitHub, Gitea, Forgejo: tokens, `--base-url`, CI examples.
+- [Provider setup](https://brpaz.github.io/draftsman/providers/) — GitHub, GitLab, Gitea, Forgejo: tokens, `--base-url`, CI examples.
 - [Git Workflows](https://brpaz.github.io/draftsman/workflows/) — trunk-based, GitHub Flow, Git Flow.
-- [Development](https://brpaz.github.io/draftsman/development/) — environment setup, [architecture](https://brpaz.github.io/draftsman/development/architecture/), and the ADRs behind [PR linkage](https://brpaz.github.io/draftsman/adr/0001-pr-linkage-strategy/), the [continuous-draft model](https://brpaz.github.io/draftsman/adr/0002-continuous-draft-model/), [commit-based entries](https://brpaz.github.io/draftsman/adr/0003-commit-based-entries/), and [single vs multi release mode](https://brpaz.github.io/draftsman/adr/0004-single-vs-multi-release-mode/).
+- [Development](https://brpaz.github.io/draftsman/development/) — environment setup, [architecture](https://brpaz.github.io/draftsman/development/architecture/), and the ADRs behind [PR linkage](https://brpaz.github.io/draftsman/adr/0001-pr-linkage-strategy/), the [continuous-draft model](https://brpaz.github.io/draftsman/adr/0002-continuous-draft-model/), [commit-based entries](https://brpaz.github.io/draftsman/adr/0003-commit-based-entries/), [single vs multi release mode](https://brpaz.github.io/draftsman/adr/0004-single-vs-multi-release-mode/), and [GitLab's upcoming-release-as-draft approximation](https://brpaz.github.io/draftsman/adr/0005-gitlab-upcoming-release-as-draft/).
 
 Coming from [release-drafter](https://github.com/release-drafter/release-drafter)? See the [migration guide](https://brpaz.github.io/draftsman/migrating/from-release-drafter/), or let an agent do the translation — a [Claude Code skill](skills/migrate-from-release-drafter/) is included:
 

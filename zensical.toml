@@ -17,6 +17,7 @@ nav = [
   { "Provider setup" = [
     "providers/index.md",
     { "GitHub" = "providers/github.md" },
+    { "GitLab" = "providers/gitlab.md" },
     { "Gitea" = "providers/gitea.md" },
     { "Forgejo" = "providers/forgejo.md" },
   ] },
@@ -31,6 +32,7 @@ nav = [
       "adr/0002-continuous-draft-model.md",
       "adr/0003-commit-based-entries.md",
       "adr/0004-single-vs-multi-release-mode.md",
+      "adr/0005-gitlab-upcoming-release-as-draft.md",
     ] },
   ] },
 ]

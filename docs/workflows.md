@@ -91,7 +91,7 @@ Why this matters more here than in the other two workflows:
 
 ## No release object at all
 
-Everything above assumes you want a GitHub/Gitea/Forgejo Draft Release. Two variants for teams that don't, layered on top of any workflow above — pick based on how far you want to go:
+Everything above assumes you want a GitHub/GitLab/Gitea/Forgejo Draft Release. Two variants for teams that don't, layered on top of any workflow above — pick based on how far you want to go:
 
 ### Atomic publish, no lingering draft
 

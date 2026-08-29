@@ -6,7 +6,7 @@ import (
 
 const (
 	Name  = "draftsman"
-	usage = "CLI tool that generates release notes from Conventional Commits, maintaining a continuously-updated draft release across GitHub, Gitea, and Forgejo"
+	usage = "CLI tool that generates release notes from Conventional Commits, maintaining a continuously-updated draft release across GitHub, GitLab, Gitea, and Forgejo"
 )
 
 // options holds the configuration for the root command.
