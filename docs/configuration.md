@@ -132,7 +132,7 @@ Overrides the built-in Go [`text/template`](https://pkg.go.dev/text/template) us
 
 {{end}}{{range .Packages}}{{if .Name}}# {{.Name}}{{if .SuggestedVersion}} ({{.SuggestedVersion}}){{end}}
 {{end}}{{range .Sections}}## {{.Name}}
-{{range .Entries}}- {{.Description}}{{if .PR}} ({{if .PR.Link}}[#{{.PR.Number}}]({{.PR.Link}}){{else}}#{{.PR.Number}}{{end}}){{end}} by {{if .AuthorRef}}[@{{.AuthorRef.Login}}]({{.AuthorRef.ProfileURL}}){{else}}{{.Author}}{{end}} ({{if .CommitURL}}[{{.ShortSHA}}]({{.CommitURL}}){{else}}{{.ShortSHA}}{{end}})
+{{range .Entries}}- {{if .Breaking}}**💥 BREAKING:** {{end}}{{.Description}}{{if .PR}} ({{if .PR.Link}}[#{{.PR.Number}}]({{.PR.Link}}){{else}}#{{.PR.Number}}{{end}}){{end}} by {{if .AuthorRef}}[@{{.AuthorRef.Login}}]({{.AuthorRef.ProfileURL}}){{else}}{{.Author}}{{end}} ({{if .CommitURL}}[{{.ShortSHA}}]({{.CommitURL}}){{else}}{{.ShortSHA}}{{end}})
 {{end}}
 {{end}}{{if .Name}}{{if .CompareURL}}
 **Full Changelog**: {{.CompareURL}}
@@ -169,6 +169,7 @@ The root template value is a `Plan`. `{{.Packages}}`, `{{.Sections}}`, and `{{.E
 | `{{.Entries}}[].Description` | string | The commit's Conventional Commit subject line. |
 | `{{.Entries}}[].Type` | string | The commit's Conventional Commit type, e.g. `feat`, `fix`. |
 | `{{.Entries}}[].Scope` | string | The commit's Conventional Commit scope, if any (empty string otherwise). |
+| `{{.Entries}}[].Breaking` | bool | Whether the commit carries a breaking-change marker (`!` after type/scope, or a `BREAKING CHANGE:` footer). Orthogonal to `Type`/its Section — a `feat!:` commit still categorizes as a Feature, `Breaking` just flags it too (see the built-in default template's `{{if .Breaking}}**💥 BREAKING:** {{end}}` prefix). |
 | `{{.Entries}}[].SHA` | string | Full commit SHA. |
 | `{{.Entries}}[].ShortSHA` | string | SHA truncated to git's conventional 7-character abbreviation. |
 | `{{.Entries}}[].Author` | string | The commit's plain git author name (`git log`'s `%an`) — always populated, independent of `AuthorRef`. |

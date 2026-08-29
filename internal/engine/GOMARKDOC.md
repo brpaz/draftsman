@@ -19,7 +19,7 @@ Package engine computes a release Plan from a repository's commit history.
 
 
 <a name="RenderPlan"></a>
-## func [RenderPlan](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L153>)
+## func [RenderPlan](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L158>)
 
 ```go
 func RenderPlan(tmplText string, plan *Plan, footer bool) (string, error)
@@ -28,7 +28,7 @@ func RenderPlan(tmplText string, plan *Plan, footer bool) (string, error)
 RenderPlan executes tmplText \(a config's Template\) against plan, producing changelog body text, then appends footerText when footer is true. Compute uses this for the full repo\-wide/multi Plan; multi\-mode draft/publish commands reuse it to render an isolated body for a single Package's own draft release, by wrapping that one PackagePlan in a synthetic \*Plan — footer is threaded through separately each time so every rendered body gets \(or skips\) it consistently, not just the top\-level one.
 
 <a name="Entry"></a>
-## type [Entry](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L19-L44>)
+## type [Entry](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L19-L49>)
 
 Entry is one changelog line, derived from a single parsed commit.
 
@@ -45,6 +45,11 @@ type Entry struct {
     Type        string
     Scope       string
     Description string
+    // Breaking is the commit's Conventional Commit breaking-change marker
+    // (a "!" after type/scope, or a "BREAKING CHANGE:" footer) — orthogonal
+    // to Type/Section, since a breaking commit still categorizes by its
+    // literal type (e.g. a "feat!:" is both a Feature and breaking).
+    Breaking bool
     // PR is the commit's resolved PR Reference, or nil when none was
     // found — enrichment only, never required (ADR-0001, ADR-0003).
     PR  *commit.PRReference
@@ -62,7 +67,7 @@ type Entry struct {
 ```
 
 <a name="PackagePlan"></a>
-## type [PackagePlan](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L59-L75>)
+## type [PackagePlan](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L64-L80>)
 
 PackagePlan is one Package's sectioned Entries. Name is empty when packages aren't configured — an implicit single package standing in for the whole repo.
 
@@ -89,7 +94,7 @@ type PackagePlan struct {
 ```
 
 <a name="Plan"></a>
-## type [Plan](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L82-L90>)
+## type [Plan](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L87-L95>)
 
 Plan is the computed result of a release: every affected Package's sectioned Entries, plus the changelog body rendered through the configured template. PreviousVersion/SuggestedVersion \(and their Tag/ CompareURL counterparts\) are the repo\-wide version \(single mode only — see PackagePlan for multi mode\).
 
@@ -106,7 +111,7 @@ type Plan struct {
 ```
 
 <a name="Compute"></a>
-### func [Compute](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L114>)
+### func [Compute](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L119>)
 
 ```go
 func Compute(ctx context.Context, repoPath string, cfg *config.Config, be backend.Backend) (*Plan, error)
@@ -117,7 +122,7 @@ Compute parses repoPath's commits as Conventional Commits, drops any carrying cf
 be is optional \(nil is fine\) — when a commit's PR Reference can't be extracted from its text \(ADR\-0001\), be.ResolvePR is tried as a best\-effort fallback. Whether that fallback does anything is entirely up to the adapter: only GitHub's actually looks anything up, so passing a Gitea/Forgejo Backend \(or none\) transparently yields the same text\-extraction\-only behavior.
 
 <a name="Section"></a>
-## type [Section](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L47-L50>)
+## type [Section](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L52-L55>)
 
 Section is a named group of Entries \(e.g. "Features", "Bug Fixes"\).
 

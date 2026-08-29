@@ -460,6 +460,40 @@ func TestCompute_HighestSeverityWins(t *testing.T) {
 	require.Equal(t, "2.0.0", plan.SuggestedVersion, "breaking beats feat and fix")
 }
 
+func TestCompute_BreakingEntry_MarkedAndHighlightedInDefaultTemplate(t *testing.T) {
+	dir := newRepo(t)
+	commitMessage(t, dir, "feat!: remove deprecated endpoint", 0)
+	commitMessage(t, dir, "feat: add login page", 1)
+
+	plan, err := engine.Compute(context.Background(), dir, config.Default(), nil)
+	require.NoError(t, err)
+
+	sections := soleSections(t, plan)
+	require.Len(t, sections, 1, "feat! still categorizes as Features, breaking is orthogonal to Type")
+
+	byDescription := map[string]engine.Entry{}
+	for _, e := range sections[0].Entries {
+		byDescription[e.Description] = e
+	}
+
+	require.True(t, byDescription["remove deprecated endpoint"].Breaking)
+	require.False(t, byDescription["add login page"].Breaking)
+
+	require.Contains(t, plan.Rendered, "**💥 BREAKING:** remove deprecated endpoint")
+	require.NotContains(t, plan.Rendered, "BREAKING:** add login page")
+}
+
+func TestCompute_BreakingViaFooter_AlsoMarked(t *testing.T) {
+	dir := newRepo(t)
+	commitMessage(t, dir, "feat: remove deprecated endpoint\n\nBREAKING CHANGE: clients must migrate", 0)
+
+	plan, err := engine.Compute(context.Background(), dir, config.Default(), nil)
+	require.NoError(t, err)
+
+	sections := soleSections(t, plan)
+	require.True(t, sections[0].Entries[0].Breaking, "a BREAKING CHANGE footer marks Breaking same as the ! marker")
+}
+
 func TestCompute_NoConventionalCommits_NoSuggestion(t *testing.T) {
 	dir := newRepo(t)
 	commitMessage(t, dir, "feat: add login page", 0)

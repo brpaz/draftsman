@@ -28,6 +28,11 @@ type Entry struct {
 	Type        string
 	Scope       string
 	Description string
+	// Breaking is the commit's Conventional Commit breaking-change marker
+	// (a "!" after type/scope, or a "BREAKING CHANGE:" footer) — orthogonal
+	// to Type/Section, since a breaking commit still categorizes by its
+	// literal type (e.g. a "feat!:" is both a Feature and breaking).
+	Breaking bool
 	// PR is the commit's resolved PR Reference, or nil when none was
 	// found — enrichment only, never required (ADR-0001, ADR-0003).
 	PR *commit.PRReference
@@ -350,6 +355,7 @@ func processCommit(ctx context.Context, be backend.Backend, c git.Commit, cfg *c
 		Type:        parsed.Type,
 		Scope:       parsed.Scope,
 		Description: parsed.Description,
+		Breaking:    parsed.Breaking,
 	}
 	if be != nil {
 		entry.CommitURL = be.CommitURL(c.SHA)

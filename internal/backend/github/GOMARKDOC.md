@@ -43,7 +43,7 @@ func New(owner, repo, token string, opts ...Option) *Client
 New returns a Client for owner/repo, authenticated with token.
 
 <a name="Client.CommitURL"></a>
-### func \(\*Client\) [CommitURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L168>)
+### func \(\*Client\) [CommitURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L175>)
 
 ```go
 func (c *Client) CommitURL(sha string) string
@@ -52,7 +52,7 @@ func (c *Client) CommitURL(sha string) string
 CommitURL implements backend.Backend. GitHub's web UI is always github.com regardless of API base URL \(only api.github.com is supported — no Enterprise base\-URL override exists for this adapter\).
 
 <a name="Client.CompareURL"></a>
-### func \(\*Client\) [CompareURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L173>)
+### func \(\*Client\) [CompareURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L180>)
 
 ```go
 func (c *Client) CompareURL(from, to string) string
@@ -61,7 +61,7 @@ func (c *Client) CompareURL(from, to string) string
 CompareURL implements backend.Backend.
 
 <a name="Client.Publish"></a>
-### func \(\*Client\) [Publish](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L84>)
+### func \(\*Client\) [Publish](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L91>)
 
 ```go
 func (c *Client) Publish(ctx context.Context, tag string) error
@@ -69,8 +69,10 @@ func (c *Client) Publish(ctx context.Context, tag string) error
 
 Publish implements backend.Backend. It flips the draft release matching tag to published. GitHub creates the underlying tag at this point \(drafts have none yet\), pointed at target\_commitish — left unset here, so it defaults to the repository's default branch HEAD at publish time, exactly what the caller expects "publish" to mean.
 
+The PATCH must explicitly set tag\_name to the real tag: a draft's stored tag\_name is GitHub's own "untagged\-\<hash\>" placeholder \(see findReleaseByTag\) until a real tag exists, and that placeholder is sticky — flipping draft:false without also resupplying tag\_name creates the tag using the placeholder string itself, not the one originally requested at draft time.
+
 <a name="Client.ResolveAuthor"></a>
-### func \(\*Client\) [ResolveAuthor](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L182>)
+### func \(\*Client\) [ResolveAuthor](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L189>)
 
 ```go
 func (c *Client) ResolveAuthor(ctx context.Context, sha string) (backend.AuthorReference, bool, error)
@@ -79,7 +81,7 @@ func (c *Client) ResolveAuthor(ctx context.Context, sha string) (backend.AuthorR
 ResolveAuthor implements backend.Backend using GitHub's "get a commit" endpoint, whose "author" field is the linked GitHub account for the commit's git author email — null when that email isn't tied to any account, in which case ok is false and callers fall back to the plain git author name \(ADR\-0001\).
 
 <a name="Client.ResolvePR"></a>
-### func \(\*Client\) [ResolvePR](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L129>)
+### func \(\*Client\) [ResolvePR](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L136>)
 
 ```go
 func (c *Client) ResolvePR(ctx context.Context, sha string) (commit.PRReference, bool, error)
