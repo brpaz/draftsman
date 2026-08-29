@@ -1,0 +1,89 @@
+name: Nix Vendor Hash
+
+on:
+  pull_request:
+    paths:
+      - "go.mod"
+      - "go.sum"
+      - "flake.nix"
+  push:
+    branches:
+      - main
+    paths:
+      - "go.mod"
+      - "go.sum"
+      - "flake.nix"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    name: Verify / fix flake.nix vendorHash
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+
+      - name: Attempt build
+        id: build
+        run: |
+          if nix build .# --no-link 2>build.log; then
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+          else
+            cat build.log
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract correct vendorHash
+        if: steps.build.outputs.stale == 'true'
+        id: hash
+        run: |
+          got=$(grep -oP '(?<=got:\s{4})sha256-\S+' build.log | tail -1)
+          if [[ -z "$got" ]]; then
+            echo "::error::nix build failed for a reason other than a vendorHash mismatch — see log above"
+            exit 1
+          fi
+          echo "hash=$got" >> "$GITHUB_OUTPUT"
+
+      - name: Update flake.nix
+        if: steps.build.outputs.stale == 'true'
+        run: |
+          sed -i "s|vendorHash = \".*\";|vendorHash = \"${{ steps.hash.outputs.hash }}\";|" flake.nix
+
+      - name: Verify the corrected hash actually builds
+        if: steps.build.outputs.stale == 'true'
+        run: nix build .# --no-link
+
+      # Same-repo PR branches get a write-capable GITHUB_TOKEN; fork PRs
+      # never do (a hard GitHub restriction, unaffected by the permissions
+      # block above) — pushing there would just fail, so this only runs
+      # for PRs whose head lives in this repository (matches Renovate).
+      - name: Commit and push the fix
+        if: >-
+          steps.build.outputs.stale == 'true' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "fix(nix): update vendorHash for go.sum changes [skip ci]"
+          file_pattern: flake.nix
+
+      - name: Fail when stale outside an auto-fixable PR
+        if: >-
+          steps.build.outputs.stale == 'true' &&
+          !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+        run: |
+          echo "::error::flake.nix vendorHash is stale for the current go.sum — run 'nix build' locally and update it"
+          exit 1
