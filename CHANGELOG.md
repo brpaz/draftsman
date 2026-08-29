@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## untagged-8aeceb8a88339570a855 - 2026-08-29
+
+### 🐛 Bug Fixes
+
+- match an existing draft by name, not just tag_name by [@brpaz](https://github.com/brpaz) ([d3ac131](https://github.com/brpaz/draftsman/commit/d3ac131f75ce23b217b0aaf52728ea9ce1145105))
+
 ## v0.1.0 - 2026-08-29
 
 ### 0.1.0
