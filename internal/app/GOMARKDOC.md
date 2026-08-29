@@ -18,7 +18,7 @@ import "github.com/brpaz/draftsman/internal/app"
 
 
 <a name="App"></a>
-## type App
+## type [App](<https://github.com/brpaz/draftsman/blob/main/internal/app/app.go#L13-L15>)
 
 App is the composition root for the draftsman CLI.
 
@@ -29,7 +29,7 @@ type App struct {
 ```
 
 <a name="New"></a>
-### func New
+### func [New](<https://github.com/brpaz/draftsman/blob/main/internal/app/app.go#L26>)
 
 ```go
 func New(opts ...Option) (*App, error)
@@ -38,7 +38,7 @@ func New(opts ...Option) (*App, error)
 New constructs an App with the provided options.
 
 <a name="App.Run"></a>
-### func \(\*App\) Run
+### func \(\*App\) [Run](<https://github.com/brpaz/draftsman/blob/main/internal/app/app.go#L43>)
 
 ```go
 func (app *App) Run(ctx context.Context, args []string) error
@@ -47,7 +47,7 @@ func (app *App) Run(ctx context.Context, args []string) error
 Run builds the root command and executes it with the provided arguments.
 
 <a name="Option"></a>
-## type Option
+## type [Option](<https://github.com/brpaz/draftsman/blob/main/internal/app/app.go#L18>)
 
 Option is a functional option for configuring an App.
 
@@ -56,7 +56,7 @@ type Option func(*App)
 ```
 
 <a name="WithVersionInfo"></a>
-### func WithVersionInfo
+### func [WithVersionInfo](<https://github.com/brpaz/draftsman/blob/main/internal/app/app.go#L21>)
 
 ```go
 func WithVersionInfo(info VersionInfo) Option
@@ -65,7 +65,7 @@ func WithVersionInfo(info VersionInfo) Option
 WithVersionInfo sets the build\-time version metadata.
 
 <a name="VersionInfo"></a>
-## type VersionInfo
+## type [VersionInfo](<https://github.com/brpaz/draftsman/blob/main/internal/app/version.go#L6-L10>)
 
 VersionInfo holds build\-time metadata injected via ldflags.
 
@@ -78,7 +78,7 @@ type VersionInfo struct {
 ```
 
 <a name="VersionInfo.String"></a>
-### func \(VersionInfo\) String
+### func \(VersionInfo\) [String](<https://github.com/brpaz/draftsman/blob/main/internal/app/version.go#L13>)
 
 ```go
 func (v VersionInfo) String() string

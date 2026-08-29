@@ -29,7 +29,7 @@ const DefaultConfigPath = ".draftsman.yml"
 ```
 
 <a name="BackendFlag"></a>
-## func BackendFlag
+## func [BackendFlag](<https://github.com/brpaz/draftsman/blob/main/internal/commands/shared/flags.go#L20>)
 
 ```go
 func BackendFlag(required bool) *cli.StringFlag
@@ -38,7 +38,7 @@ func BackendFlag(required bool) *cli.StringFlag
 BackendFlag selects which git backend to talk to. Required when set to true \(draft/publish need to reach the backend API\); optional for preview, where it only enables best\-effort PR enrichment.
 
 <a name="BaseURLFlag"></a>
-## func BaseURLFlag
+## func [BaseURLFlag](<https://github.com/brpaz/draftsman/blob/main/internal/commands/shared/flags.go#L69>)
 
 ```go
 func BaseURLFlag() *cli.StringFlag
@@ -47,7 +47,7 @@ func BaseURLFlag() *cli.StringFlag
 BaseURLFlag is the git hosting instance's API base URL. GitHub ignores it \(fixed api.github.com\); self\-hosted backends \(gitea, forgejo\) require it — ResolveBackend enforces that, since it can't be expressed as a static per\-flag Required \(whether it's required depends on \-\-backend's value, known only at runtime\). GitLab defaults to gitlab.com when unset, same as GitHub, but accepts an override for a self\-hosted instance.
 
 <a name="ConfigFlag"></a>
-## func ConfigFlag
+## func [ConfigFlag](<https://github.com/brpaz/draftsman/blob/main/internal/commands/shared/flags.go#L9>)
 
 ```go
 func ConfigFlag() *cli.StringFlag
@@ -56,7 +56,7 @@ func ConfigFlag() *cli.StringFlag
 ConfigFlag is the path to the repo's .draftsman.yml.
 
 <a name="PackageFlag"></a>
-## func PackageFlag
+## func [PackageFlag](<https://github.com/brpaz/draftsman/blob/main/internal/commands/shared/flags.go#L41>)
 
 ```go
 func PackageFlag() *cli.StringFlag
@@ -65,7 +65,7 @@ func PackageFlag() *cli.StringFlag
 PackageFlag scopes an operation to a single package in multi mode. Unused in single mode.
 
 <a name="RepoFlag"></a>
-## func RepoFlag
+## func [RepoFlag](<https://github.com/brpaz/draftsman/blob/main/internal/commands/shared/flags.go#L54>)
 
 ```go
 func RepoFlag(required bool) *cli.StringFlag
@@ -74,7 +74,7 @@ func RepoFlag(required bool) *cli.StringFlag
 RepoFlag identifies the target repository as "owner/repo". Required alongside BackendFlag/TokenFlag for any command that talks to a backend API. GITHUB\_REPOSITORY and CI\_PROJECT\_PATH are GitHub Actions' and GitLab CI's own auto\-injected env vars, in the same "owner/repo" form \(CI\_PROJECT\_PATH includes any nested group\), so either works as a source with no extra setup.
 
 <a name="ResolveBackend"></a>
-## func ResolveBackend
+## func [ResolveBackend](<https://github.com/brpaz/draftsman/blob/main/internal/commands/shared/backend.go#L22>)
 
 ```go
 func ResolveBackend(cmd *cli.Command, required bool) (backend.Backend, error)
@@ -83,7 +83,7 @@ func ResolveBackend(cmd *cli.Command, required bool) (backend.Backend, error)
 ResolveBackend constructs a Backend from cmd's \-\-backend/\-\-token/\-\-repo flags. When required is true \(draft/publish, where these flags are already CLI\-required\), missing pieces or an unsupported backend are errors. When required is false \(preview, where backend access is only optional PR\-Reference enrichment — ADR\-0001\), anything missing or unsupported just means no enrichment: a nil Backend, no error.
 
 <a name="TokenFlag"></a>
-## func TokenFlag
+## func [TokenFlag](<https://github.com/brpaz/draftsman/blob/main/internal/commands/shared/flags.go#L30>)
 
 ```go
 func TokenFlag(required bool) *cli.StringFlag

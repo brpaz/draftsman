@@ -25,7 +25,7 @@ Package version parses and increments SemVer versions, and matches them against 
 
 
 <a name="Bump"></a>
-## type Bump
+## type [Bump](<https://github.com/brpaz/draftsman/blob/main/internal/version/version.go#L13>)
 
 Bump is a SemVer increment severity. Zero value is BumpNone \(no bump\).
 
@@ -45,7 +45,7 @@ const (
 ```
 
 <a name="Max"></a>
-### func Max
+### func [Max](<https://github.com/brpaz/draftsman/blob/main/internal/version/version.go#L23>)
 
 ```go
 func Max(a, b Bump) Bump
@@ -54,7 +54,7 @@ func Max(a, b Bump) Bump
 Max returns the higher\-severity of a and b.
 
 <a name="Format"></a>
-## type Format
+## type [Format](<https://github.com/brpaz/draftsman/blob/main/internal/version/version.go#L90-L93>)
 
 Format is a parsed tag\-format template such as "v\{\{version\}\}" or "\{\{package\}\}\-v\{\{version\}\}". \{\{package\}\} is accepted here even though single\-mode matching \(Match\) never uses it — multi\-mode range\-finding reuses this same parser once it exists.
 
@@ -65,7 +65,7 @@ type Format struct {
 ```
 
 <a name="ParseFormat"></a>
-### func ParseFormat
+### func [ParseFormat](<https://github.com/brpaz/draftsman/blob/main/internal/version/version.go#L98>)
 
 ```go
 func ParseFormat(raw string) (*Format, error)
@@ -74,7 +74,7 @@ func ParseFormat(raw string) (*Format, error)
 ParseFormat compiles raw into a matcher. raw must contain \{\{version\}\} — a tag format that can't identify a version can't be used to find "the last release".
 
 <a name="Format.ForPackage"></a>
-### func \(\*Format\) ForPackage
+### func \(\*Format\) [ForPackage](<https://github.com/brpaz/draftsman/blob/main/internal/version/version.go#L139>)
 
 ```go
 func (f *Format) ForPackage(name string) (*Format, error)
@@ -83,7 +83,7 @@ func (f *Format) ForPackage(name string) (*Format, error)
 ForPackage returns a Format with \{\{package\}\} resolved to name, so Match only matches tags belonging to that specific package \(multi mode\).
 
 <a name="Format.Match"></a>
-### func \(\*Format\) Match
+### func \(\*Format\) [Match](<https://github.com/brpaz/draftsman/blob/main/internal/version/version.go#L145>)
 
 ```go
 func (f *Format) Match(tag string) (SemVer, bool)
@@ -92,7 +92,7 @@ func (f *Format) Match(tag string) (SemVer, bool)
 Match reports whether tag matches the format, returning its version when so.
 
 <a name="Format.Render"></a>
-### func \(\*Format\) Render
+### func \(\*Format\) [Render](<https://github.com/brpaz/draftsman/blob/main/internal/version/version.go#L131>)
 
 ```go
 func (f *Format) Render(ver, pkg string) string
@@ -101,7 +101,7 @@ func (f *Format) Render(ver, pkg string) string
 Render substitutes ver \(and pkg, for a \{\{package\}\} placeholder, if any\) into the format's template, producing a concrete tag string — the counterpart to Match, used when creating a new tag rather than finding an existing one.
 
 <a name="SemVer"></a>
-## type SemVer
+## type [SemVer](<https://github.com/brpaz/draftsman/blob/main/internal/version/version.go#L33-L35>)
 
 SemVer is a parsed major.minor.patch version. Pre\-release and build metadata aren't supported — tag\-format's \{\{version\}\} placeholder only matches bare major.minor.patch tags.
 
@@ -112,7 +112,7 @@ type SemVer struct {
 ```
 
 <a name="Parse"></a>
-### func Parse
+### func [Parse](<https://github.com/brpaz/draftsman/blob/main/internal/version/version.go#L67>)
 
 ```go
 func Parse(s string) (SemVer, error)
@@ -121,7 +121,7 @@ func Parse(s string) (SemVer, error)
 Parse reads a bare "major.minor.patch" string.
 
 <a name="SemVer.Apply"></a>
-### func \(SemVer\) Apply
+### func \(SemVer\) [Apply](<https://github.com/brpaz/draftsman/blob/main/internal/version/version.go#L53>)
 
 ```go
 func (v SemVer) Apply(bump Bump) SemVer
@@ -130,7 +130,7 @@ func (v SemVer) Apply(bump Bump) SemVer
 Apply returns the version after applying bump. BumpNone returns v unchanged.
 
 <a name="SemVer.GreaterThan"></a>
-### func \(SemVer\) GreaterThan
+### func \(SemVer\) [GreaterThan](<https://github.com/brpaz/draftsman/blob/main/internal/version/version.go#L42>)
 
 ```go
 func (v SemVer) GreaterThan(o SemVer) bool
@@ -139,7 +139,7 @@ func (v SemVer) GreaterThan(o SemVer) bool
 GreaterThan reports whether v is a later version than o.
 
 <a name="SemVer.String"></a>
-### func \(SemVer\) String
+### func \(SemVer\) [String](<https://github.com/brpaz/draftsman/blob/main/internal/version/version.go#L37>)
 
 ```go
 func (v SemVer) String() string

@@ -26,7 +26,7 @@ const (
 ```
 
 <a name="New"></a>
-## func New
+## func [New](<https://github.com/brpaz/draftsman/blob/main/internal/commands/root/root.go#L33>)
 
 ```go
 func New(opts ...Option) *cli.Command
@@ -35,7 +35,7 @@ func New(opts ...Option) *cli.Command
 New returns the root \*cli.Command with the supplied options applied.
 
 <a name="Option"></a>
-## type Option
+## type [Option](<https://github.com/brpaz/draftsman/blob/main/internal/commands/root/root.go#L19>)
 
 Option is a functional option for configuring the root command.
 
@@ -44,7 +44,7 @@ type Option func(*options)
 ```
 
 <a name="WithCommand"></a>
-### func WithCommand
+### func [WithCommand](<https://github.com/brpaz/draftsman/blob/main/internal/commands/root/root.go#L28>)
 
 ```go
 func WithCommand(cmd *cli.Command) Option
@@ -53,7 +53,7 @@ func WithCommand(cmd *cli.Command) Option
 WithCommand appends a single sub\-command to the root command. Call it multiple times to register multiple sub\-commands.
 
 <a name="WithVersion"></a>
-### func WithVersion
+### func [WithVersion](<https://github.com/brpaz/draftsman/blob/main/internal/commands/root/root.go#L22>)
 
 ```go
 func WithVersion(v string) Option

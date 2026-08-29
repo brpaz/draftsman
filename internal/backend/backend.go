@@ -46,6 +46,11 @@ type Backend interface {
 	// adapter was constructed with — no API call, always succeeds.
 	CommitURL(sha string) string
 
+	// CompareURL returns the web URL for diffing from..to (tag or ref
+	// names) on this backend's hosting UI. Pure string formatting, like
+	// CommitURL — no API call, always succeeds.
+	CompareURL(from, to string) string
+
 	// ResolveAuthor looks up the account linked to sha's commit author via
 	// a live API call. ok is false when unsupported by this backend or
 	// when the commit's author has no linked account (e.g. a git author

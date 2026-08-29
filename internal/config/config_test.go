@@ -53,6 +53,24 @@ categories:
 	assert.Equal(t, config.Default().Template, cfg.Template)
 }
 
+func TestLoad_FooterFalseOverridesDefault(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".draftsman.yml")
+	writeFile(t, path, "footer: false\n")
+
+	cfg, err := config.Load(path, true)
+	require.NoError(t, err)
+
+	require.NotNil(t, cfg.Footer)
+	assert.False(t, *cfg.Footer)
+	assert.False(t, cfg.FooterEnabled())
+}
+
+func TestFooterEnabled_DefaultsTrueWhenNil(t *testing.T) {
+	cfg := &config.Config{}
+	assert.True(t, cfg.FooterEnabled(), "a Config not built through Default/Load must not panic or default to disabled")
+}
+
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))

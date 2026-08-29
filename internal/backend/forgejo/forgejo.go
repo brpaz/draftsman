@@ -106,6 +106,11 @@ func (c *Client) CommitURL(sha string) string {
 	return fmt.Sprintf("%s/%s/%s/commit/%s", c.baseURL, c.owner, c.repo, sha)
 }
 
+// CompareURL implements backend.Backend.
+func (c *Client) CompareURL(from, to string) string {
+	return fmt.Sprintf("%s/%s/%s/compare/%s...%s", c.baseURL, c.owner, c.repo, from, to)
+}
+
 // ResolveAuthor implements backend.Backend. Unlike GitHub's "get a commit"
 // endpoint, no Forgejo endpoint returning a commit's linked account has
 // been verified against a live instance — per ADR-0001, this always

@@ -17,7 +17,7 @@ Package git reads commit history from a local repository.
 
 
 <a name="ChangedFiles"></a>
-## func ChangedFiles
+## func [ChangedFiles](<https://github.com/brpaz/draftsman/blob/main/internal/git/git.go#L76>)
 
 ```go
 func ChangedFiles(ctx context.Context, repoPath, sha string) ([]string, error)
@@ -26,7 +26,7 @@ func ChangedFiles(ctx context.Context, repoPath, sha string) ([]string, error)
 ChangedFiles returns the paths changed by sha, relative to the repo root. \-\-root makes this correct for a commit with no parent \(diffed against an empty tree\) as well as any ordinary commit.
 
 <a name="Tags"></a>
-## func Tags
+## func [Tags](<https://github.com/brpaz/draftsman/blob/main/internal/git/git.go#L96>)
 
 ```go
 func Tags(ctx context.Context, repoPath string) ([]string, error)
@@ -35,7 +35,7 @@ func Tags(ctx context.Context, repoPath string) ([]string, error)
 Tags returns every tag reachable from HEAD in repoPath. A repository with no commits yet returns an empty slice, not an error.
 
 <a name="Commit"></a>
-## type Commit
+## type [Commit](<https://github.com/brpaz/draftsman/blob/main/internal/git/git.go#L14-L18>)
 
 Commit is a single commit as read from git log, oldest fields only — callers parse Message themselves \(see internal/commit\).
 
@@ -48,7 +48,7 @@ type Commit struct {
 ```
 
 <a name="Log"></a>
-### func Log
+### func [Log](<https://github.com/brpaz/draftsman/blob/main/internal/git/git.go#L26>)
 
 ```go
 func Log(ctx context.Context, repoPath, since string) ([]Commit, error)

@@ -16,7 +16,7 @@ Package backend defines the interface every git hosting adapter \(GitHub, GitLab
 
 
 <a name="AuthorReference"></a>
-## type AuthorReference
+## type [AuthorReference](<https://github.com/brpaz/draftsman/blob/main/internal/backend/backend.go#L23-L26>)
 
 AuthorReference is a commit author's linked account on the backend, resolved via a live API call — the git commit's author name/email alone carries no such account \(ADR\-0001's rationale for PRReference applies identically here: link only what a reliable source confirms\).
 
@@ -28,7 +28,7 @@ type AuthorReference struct {
 ```
 
 <a name="Backend"></a>
-## type Backend
+## type [Backend](<https://github.com/brpaz/draftsman/blob/main/internal/backend/backend.go#L29-L60>)
 
 Backend is implemented identically by every git hosting adapter.
 
@@ -53,6 +53,11 @@ type Backend interface {
     // adapter was constructed with — no API call, always succeeds.
     CommitURL(sha string) string
 
+    // CompareURL returns the web URL for diffing from..to (tag or ref
+    // names) on this backend's hosting UI. Pure string formatting, like
+    // CommitURL — no API call, always succeeds.
+    CompareURL(from, to string) string
+
     // ResolveAuthor looks up the account linked to sha's commit author via
     // a live API call. ok is false when unsupported by this backend or
     // when the commit's author has no linked account (e.g. a git author
@@ -63,7 +68,7 @@ type Backend interface {
 ```
 
 <a name="UpsertDraftRequest"></a>
-## type UpsertDraftRequest
+## type [UpsertDraftRequest](<https://github.com/brpaz/draftsman/blob/main/internal/backend/backend.go#L13-L17>)
 
 UpsertDraftRequest is what's needed to create or update the draft release for one tag.
 

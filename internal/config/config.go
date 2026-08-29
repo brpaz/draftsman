@@ -28,7 +28,12 @@ const (
 {{end}}{{range .Sections}}## {{.Name}}
 {{range .Entries}}- {{.Description}}{{if .PR}} ({{if .PR.Link}}[#{{.PR.Number}}]({{.PR.Link}}){{else}}#{{.PR.Number}}{{end}}){{end}} by {{if .AuthorRef}}[@{{.AuthorRef.Login}}]({{.AuthorRef.ProfileURL}}){{else}}{{.Author}}{{end}} ({{if .CommitURL}}[{{.ShortSHA}}]({{.CommitURL}}){{else}}{{.ShortSHA}}{{end}})
 {{end}}
-{{end}}{{end}}`
+{{end}}{{if .Name}}{{if .CompareURL}}
+**Full Changelog**: {{.CompareURL}}
+{{end}}{{else}}{{if $.CompareURL}}
+**Full Changelog**: {{$.CompareURL}}
+{{end}}{{end}}
+{{end}}`
 )
 
 // Category maps a Conventional Commit type — optionally narrowed to a
@@ -62,11 +67,26 @@ type Config struct {
 	// single mode {{package}} is accepted but unused.
 	TagFormat string `yaml:"tag-format"`
 	Template  string `yaml:"template"`
+	// Footer controls whether draftsman appends its own attribution
+	// footer to every rendered changelog body. A pointer so Load can tell
+	// "not set in this repo's config" (nil, keep Default's true) apart
+	// from an explicit "footer: false" (set, false) — a plain bool can't
+	// make that distinction, since both read as the zero value.
+	Footer *bool `yaml:"footer"`
+}
+
+// FooterEnabled reports whether c.Footer's attribution footer should be
+// appended. A nil Footer (any Config not built through Default/Load, e.g.
+// a test-constructed literal) defaults to true, same as Default's own
+// value — callers never need to nil-check Footer themselves.
+func (c *Config) FooterEnabled() bool {
+	return c.Footer == nil || *c.Footer
 }
 
 // Default returns the built-in configuration used when no field is
 // overridden — this is also what a repo with no .draftsman.yml gets.
 func Default() *Config {
+	footer := true
 	return &Config{
 		Mode: ModeSingle,
 		Categories: []Category{
@@ -76,6 +96,7 @@ func Default() *Config {
 		SkipChangelogTrailer: defaultSkipChangelogTrailer,
 		TagFormat:            defaultTagFormat,
 		Template:             defaultTemplate,
+		Footer:               &footer,
 	}
 }
 
@@ -121,6 +142,9 @@ func Load(path string, required bool) (*Config, error) {
 	}
 	if len(overrides.Packages) > 0 {
 		cfg.Packages = overrides.Packages
+	}
+	if overrides.Footer != nil {
+		cfg.Footer = overrides.Footer
 	}
 
 	return cfg, nil

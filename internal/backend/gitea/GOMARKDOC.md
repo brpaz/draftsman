@@ -13,6 +13,7 @@ Package gitea implements backend.Backend against the Gitea REST API \(api/v1\), 
 - [type Client](<#Client>)
   - [func New\(baseURL, owner, repo, token string\) \*Client](<#New>)
   - [func \(c \*Client\) CommitURL\(sha string\) string](<#Client.CommitURL>)
+  - [func \(c \*Client\) CompareURL\(from, to string\) string](<#Client.CompareURL>)
   - [func \(c \*Client\) Publish\(ctx context.Context, tag string\) error](<#Client.Publish>)
   - [func \(c \*Client\) ResolveAuthor\(\_ context.Context, \_ string\) \(backend.AuthorReference, bool, error\)](<#Client.ResolveAuthor>)
   - [func \(c \*Client\) ResolvePR\(\_ context.Context, \_ string\) \(commit.PRReference, bool, error\)](<#Client.ResolvePR>)
@@ -20,7 +21,7 @@ Package gitea implements backend.Backend against the Gitea REST API \(api/v1\), 
 
 
 <a name="Client"></a>
-## type Client
+## type [Client](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitea/gitea.go#L27-L30>)
 
 Client implements backend.Backend against a Gitea instance's REST API.
 
@@ -31,7 +32,7 @@ type Client struct {
 ```
 
 <a name="New"></a>
-### func New
+### func [New](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitea/gitea.go#L38>)
 
 ```go
 func New(baseURL, owner, repo, token string) *Client
@@ -40,7 +41,7 @@ func New(baseURL, owner, repo, token string) *Client
 New returns a Client for owner/repo against the Gitea instance at baseURL \(e.g. "https://gitea.example.com" — no trailing slash or "/api/v1" suffix needed, New adds it\). Unlike GitHub's fixed api.github.com, Gitea is self\-hosted, so baseURL is always required.
 
 <a name="Client.CommitURL"></a>
-### func \(\*Client\) CommitURL
+### func \(\*Client\) [CommitURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitea/gitea.go#L102>)
 
 ```go
 func (c *Client) CommitURL(sha string) string
@@ -48,8 +49,17 @@ func (c *Client) CommitURL(sha string) string
 
 CommitURL implements backend.Backend, using baseURL as the instance's web root \(same host as the API, just without the "/api/v1" prefix\).
 
+<a name="Client.CompareURL"></a>
+### func \(\*Client\) [CompareURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitea/gitea.go#L107>)
+
+```go
+func (c *Client) CompareURL(from, to string) string
+```
+
+CompareURL implements backend.Backend.
+
 <a name="Client.Publish"></a>
-### func \(\*Client\) Publish
+### func \(\*Client\) [Publish](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitea/gitea.go#L76>)
 
 ```go
 func (c *Client) Publish(ctx context.Context, tag string) error
@@ -58,7 +68,7 @@ func (c *Client) Publish(ctx context.Context, tag string) error
 Publish implements backend.Backend: flips the draft release matching tag to published. As with GitHub, the underlying git tag doesn't exist until this point; leaving target\_commitish unset in the PATCH means Gitea keeps whatever was set at draft\-creation time \(also left unset, which Gitea resolves to the default branch\), so publish always tags the default branch's current state rather than a stale commitish.
 
 <a name="Client.ResolveAuthor"></a>
-### func \(\*Client\) ResolveAuthor
+### func \(\*Client\) [ResolveAuthor](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitea/gitea.go#L115>)
 
 ```go
 func (c *Client) ResolveAuthor(_ context.Context, _ string) (backend.AuthorReference, bool, error)
@@ -67,7 +77,7 @@ func (c *Client) ResolveAuthor(_ context.Context, _ string) (backend.AuthorRefer
 ResolveAuthor implements backend.Backend. Unlike GitHub's "get a commit" endpoint, no Gitea endpoint returning a commit's linked account has been verified against a live instance — per ADR\-0001, this always reports "not supported" rather than attempting an unverified lookup.
 
 <a name="Client.ResolvePR"></a>
-### func \(\*Client\) ResolvePR
+### func \(\*Client\) [ResolvePR](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitea/gitea.go#L96>)
 
 ```go
 func (c *Client) ResolvePR(_ context.Context, _ string) (commit.PRReference, bool, error)
@@ -76,7 +86,7 @@ func (c *Client) ResolvePR(_ context.Context, _ string) (commit.PRReference, boo
 ResolvePR implements backend.Backend. Gitea has no commit→PR lookup endpoint \(unlike GitHub's commits/\{sha\}/pulls\) — per ADR\-0001, only ticket 05's text extraction \(the "Reviewed\-on:" trailer\) applies here, so this always reports "not supported" rather than attempting a lookup that doesn't exist.
 
 <a name="Client.UpsertDraft"></a>
-### func \(\*Client\) UpsertDraft
+### func \(\*Client\) [UpsertDraft](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitea/gitea.go#L55>)
 
 ```go
 func (c *Client) UpsertDraft(ctx context.Context, req backend.UpsertDraftRequest) error

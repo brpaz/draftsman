@@ -10,7 +10,7 @@ Package engine computes a release Plan from a repository's commit history.
 
 ## Index
 
-- [func RenderPlan\(tmplText string, plan \*Plan\) \(string, error\)](<#RenderPlan>)
+- [func RenderPlan\(tmplText string, plan \*Plan, footer bool\) \(string, error\)](<#RenderPlan>)
 - [type Entry](<#Entry>)
 - [type PackagePlan](<#PackagePlan>)
 - [type Plan](<#Plan>)
@@ -19,16 +19,16 @@ Package engine computes a release Plan from a repository's commit history.
 
 
 <a name="RenderPlan"></a>
-## func RenderPlan
+## func [RenderPlan](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L153>)
 
 ```go
-func RenderPlan(tmplText string, plan *Plan) (string, error)
+func RenderPlan(tmplText string, plan *Plan, footer bool) (string, error)
 ```
 
-RenderPlan executes tmplText \(a config's Template\) against plan, producing changelog body text. Compute uses this for the full repo\-wide/multi Plan; multi\-mode draft/publish commands reuse it to render an isolated body for a single Package's own draft release, by wrapping that one PackagePlan in a synthetic \*Plan.
+RenderPlan executes tmplText \(a config's Template\) against plan, producing changelog body text, then appends footerText when footer is true. Compute uses this for the full repo\-wide/multi Plan; multi\-mode draft/publish commands reuse it to render an isolated body for a single Package's own draft release, by wrapping that one PackagePlan in a synthetic \*Plan — footer is threaded through separately each time so every rendered body gets \(or skips\) it consistently, not just the top\-level one.
 
 <a name="Entry"></a>
-## type Entry
+## type [Entry](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L19-L44>)
 
 Entry is one changelog line, derived from a single parsed commit.
 
@@ -62,7 +62,7 @@ type Entry struct {
 ```
 
 <a name="PackagePlan"></a>
-## type PackagePlan
+## type [PackagePlan](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L59-L75>)
 
 PackagePlan is one Package's sectioned Entries. Name is empty when packages aren't configured — an implicit single package standing in for the whole repo.
 
@@ -74,25 +74,39 @@ type PackagePlan struct {
     Sections         []Section
     PreviousVersion  string
     SuggestedVersion string
+    // PreviousTag/SuggestedTag are PreviousVersion/SuggestedVersion with
+    // tag-format applied — the actual git tag names, not bare SemVer.
+    // Empty wherever the corresponding Version field is (no previous
+    // release, or no release-worthy Entries yet).
+    PreviousTag  string
+    SuggestedTag string
+    // CompareURL links to a from/to diff between PreviousTag and
+    // SuggestedTag on the backend's web UI. Empty when either tag is
+    // empty, or no Backend was supplied — enrichment only, same as
+    // Entry.CommitURL.
+    CompareURL string
 }
 ```
 
 <a name="Plan"></a>
-## type Plan
+## type [Plan](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L82-L90>)
 
-Plan is the computed result of a release: every affected Package's sectioned Entries, plus the changelog body rendered through the configured template. PreviousVersion/SuggestedVersion are the repo\-wide version \(single mode only — see PackagePlan for multi mode\).
+Plan is the computed result of a release: every affected Package's sectioned Entries, plus the changelog body rendered through the configured template. PreviousVersion/SuggestedVersion \(and their Tag/ CompareURL counterparts\) are the repo\-wide version \(single mode only — see PackagePlan for multi mode\).
 
 ```go
 type Plan struct {
     Packages         []PackagePlan
     PreviousVersion  string
     SuggestedVersion string
+    PreviousTag      string
+    SuggestedTag     string
+    CompareURL       string
     Rendered         string
 }
 ```
 
 <a name="Compute"></a>
-### func Compute
+### func [Compute](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L114>)
 
 ```go
 func Compute(ctx context.Context, repoPath string, cfg *config.Config, be backend.Backend) (*Plan, error)
@@ -103,7 +117,7 @@ Compute parses repoPath's commits as Conventional Commits, drops any carrying cf
 be is optional \(nil is fine\) — when a commit's PR Reference can't be extracted from its text \(ADR\-0001\), be.ResolvePR is tried as a best\-effort fallback. Whether that fallback does anything is entirely up to the adapter: only GitHub's actually looks anything up, so passing a Gitea/Forgejo Backend \(or none\) transparently yields the same text\-extraction\-only behavior.
 
 <a name="Section"></a>
-## type Section
+## type [Section](<https://github.com/brpaz/draftsman/blob/main/internal/engine/engine.go#L47-L50>)
 
 Section is a named group of Entries \(e.g. "Features", "Bug Fixes"\).
 

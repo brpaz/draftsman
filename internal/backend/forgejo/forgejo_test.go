@@ -205,3 +205,8 @@ func TestCommitURL_UsesBaseURLAsWebRoot(t *testing.T) {
 	client := forgejo.New("https://codeberg.org/", "brpaz", "draftsman", "test-token")
 	require.Equal(t, "https://codeberg.org/brpaz/draftsman/commit/abc123", client.CommitURL("abc123"))
 }
+
+func TestCompareURL_UsesBaseURLAsWebRoot(t *testing.T) {
+	client := forgejo.New("https://codeberg.org/", "brpaz", "draftsman", "test-token")
+	require.Equal(t, "https://codeberg.org/brpaz/draftsman/compare/v1.0.0...v1.1.0", client.CompareURL("v1.0.0", "v1.1.0"))
+}

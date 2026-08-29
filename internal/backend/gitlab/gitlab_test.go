@@ -213,3 +213,8 @@ func TestCommitURL_NestedGroup(t *testing.T) {
 	client := gitlab.New("https://gitlab.com", "group", "subgroup/project", "test-token")
 	require.Equal(t, "https://gitlab.com/group/subgroup/project/-/commit/abc123", client.CommitURL("abc123"))
 }
+
+func TestCompareURL_UsesBaseURLAsWebRoot(t *testing.T) {
+	client := gitlab.New("https://gitlab.example.com/", "brpaz", "draftsman", "test-token")
+	require.Equal(t, "https://gitlab.example.com/brpaz/draftsman/-/compare/v1.0.0...v1.1.0", client.CompareURL("v1.0.0", "v1.1.0"))
+}

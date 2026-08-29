@@ -13,6 +13,7 @@ Package github implements backend.Backend against the GitHub REST API.
 - [type Client](<#Client>)
   - [func New\(owner, repo, token string, opts ...Option\) \*Client](<#New>)
   - [func \(c \*Client\) CommitURL\(sha string\) string](<#Client.CommitURL>)
+  - [func \(c \*Client\) CompareURL\(from, to string\) string](<#Client.CompareURL>)
   - [func \(c \*Client\) Publish\(ctx context.Context, tag string\) error](<#Client.Publish>)
   - [func \(c \*Client\) ResolveAuthor\(ctx context.Context, sha string\) \(backend.AuthorReference, bool, error\)](<#Client.ResolveAuthor>)
   - [func \(c \*Client\) ResolvePR\(ctx context.Context, sha string\) \(commit.PRReference, bool, error\)](<#Client.ResolvePR>)
@@ -22,7 +23,7 @@ Package github implements backend.Backend against the GitHub REST API.
 
 
 <a name="Client"></a>
-## type Client
+## type [Client](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L24-L28>)
 
 Client implements backend.Backend against the GitHub REST API.
 
@@ -33,7 +34,7 @@ type Client struct {
 ```
 
 <a name="New"></a>
-### func New
+### func [New](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L42>)
 
 ```go
 func New(owner, repo, token string, opts ...Option) *Client
@@ -42,7 +43,7 @@ func New(owner, repo, token string, opts ...Option) *Client
 New returns a Client for owner/repo, authenticated with token.
 
 <a name="Client.CommitURL"></a>
-### func \(\*Client\) CommitURL
+### func \(\*Client\) [CommitURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L168>)
 
 ```go
 func (c *Client) CommitURL(sha string) string
@@ -50,8 +51,17 @@ func (c *Client) CommitURL(sha string) string
 
 CommitURL implements backend.Backend. GitHub's web UI is always github.com regardless of API base URL \(only api.github.com is supported — no Enterprise base\-URL override exists for this adapter\).
 
+<a name="Client.CompareURL"></a>
+### func \(\*Client\) [CompareURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L173>)
+
+```go
+func (c *Client) CompareURL(from, to string) string
+```
+
+CompareURL implements backend.Backend.
+
 <a name="Client.Publish"></a>
-### func \(\*Client\) Publish
+### func \(\*Client\) [Publish](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L84>)
 
 ```go
 func (c *Client) Publish(ctx context.Context, tag string) error
@@ -60,7 +70,7 @@ func (c *Client) Publish(ctx context.Context, tag string) error
 Publish implements backend.Backend. It flips the draft release matching tag to published. GitHub creates the underlying tag at this point \(drafts have none yet\), pointed at target\_commitish — left unset here, so it defaults to the repository's default branch HEAD at publish time, exactly what the caller expects "publish" to mean.
 
 <a name="Client.ResolveAuthor"></a>
-### func \(\*Client\) ResolveAuthor
+### func \(\*Client\) [ResolveAuthor](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L182>)
 
 ```go
 func (c *Client) ResolveAuthor(ctx context.Context, sha string) (backend.AuthorReference, bool, error)
@@ -69,7 +79,7 @@ func (c *Client) ResolveAuthor(ctx context.Context, sha string) (backend.AuthorR
 ResolveAuthor implements backend.Backend using GitHub's "get a commit" endpoint, whose "author" field is the linked GitHub account for the commit's git author email — null when that email isn't tied to any account, in which case ok is false and callers fall back to the plain git author name \(ADR\-0001\).
 
 <a name="Client.ResolvePR"></a>
-### func \(\*Client\) ResolvePR
+### func \(\*Client\) [ResolvePR](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L129>)
 
 ```go
 func (c *Client) ResolvePR(ctx context.Context, sha string) (commit.PRReference, bool, error)
@@ -78,7 +88,7 @@ func (c *Client) ResolvePR(ctx context.Context, sha string) (commit.PRReference,
 ResolvePR implements backend.Backend using GitHub's "list pull requests associated with a commit" endpoint — reliable on GitHub \(unlike Gitea, which has no equivalent, or Forgejo, whose equivalent is unreliable; see ADR\-0001, where those adapters' ResolvePR always returns ok=false\).
 
 <a name="Client.UpsertDraft"></a>
-### func \(\*Client\) UpsertDraft
+### func \(\*Client\) [UpsertDraft](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L64>)
 
 ```go
 func (c *Client) UpsertDraft(ctx context.Context, req backend.UpsertDraftRequest) error
@@ -87,7 +97,7 @@ func (c *Client) UpsertDraft(ctx context.Context, req backend.UpsertDraftRequest
 UpsertDraft implements backend.Backend.
 
 <a name="Option"></a>
-## type Option
+## type [Option](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L33>)
 
 Option configures a Client.
 
@@ -96,7 +106,7 @@ type Option func(*Client)
 ```
 
 <a name="WithBaseURL"></a>
-### func WithBaseURL
+### func [WithBaseURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L37>)
 
 ```go
 func WithBaseURL(url string) Option

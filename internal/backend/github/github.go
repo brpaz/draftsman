@@ -169,6 +169,11 @@ func (c *Client) CommitURL(sha string) string {
 	return fmt.Sprintf("https://github.com/%s/%s/commit/%s", c.owner, c.repo, sha)
 }
 
+// CompareURL implements backend.Backend.
+func (c *Client) CompareURL(from, to string) string {
+	return fmt.Sprintf("https://github.com/%s/%s/compare/%s...%s", c.owner, c.repo, from, to)
+}
+
 // ResolveAuthor implements backend.Backend using GitHub's "get a commit"
 // endpoint, whose "author" field is the linked GitHub account for the
 // commit's git author email — null when that email isn't tied to any

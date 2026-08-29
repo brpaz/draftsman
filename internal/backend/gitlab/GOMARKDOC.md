@@ -16,6 +16,7 @@ Unlike GitHub/Gitea/Forgejo, this means the underlying git tag is created as soo
 - [type Client](<#Client>)
   - [func New\(baseURL, owner, repo, token string\) \*Client](<#New>)
   - [func \(c \*Client\) CommitURL\(sha string\) string](<#Client.CommitURL>)
+  - [func \(c \*Client\) CompareURL\(from, to string\) string](<#Client.CompareURL>)
   - [func \(c \*Client\) Publish\(ctx context.Context, tag string\) error](<#Client.Publish>)
   - [func \(c \*Client\) ResolveAuthor\(\_ context.Context, \_ string\) \(backend.AuthorReference, bool, error\)](<#Client.ResolveAuthor>)
   - [func \(c \*Client\) ResolvePR\(ctx context.Context, sha string\) \(commit.PRReference, bool, error\)](<#Client.ResolvePR>)
@@ -31,7 +32,7 @@ const DefaultBaseURL = "https://gitlab.com"
 ```
 
 <a name="Client"></a>
-## type Client
+## type [Client](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitlab/gitlab.go#L40-L46>)
 
 Client implements backend.Backend against a GitLab instance's REST API \(api/v4\) — gitlab.com by default, or a self\-hosted instance via baseURL.
 
@@ -42,7 +43,7 @@ type Client struct {
 ```
 
 <a name="New"></a>
-### func New
+### func [New](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitlab/gitlab.go#L54>)
 
 ```go
 func New(baseURL, owner, repo, token string) *Client
@@ -51,7 +52,7 @@ func New(baseURL, owner, repo, token string) *Client
 New returns a Client for owner/repo against the GitLab instance at baseURL \(e.g. "https://gitlab.com", or a self\-hosted root — no trailing slash or "/api/v4" suffix needed, New adds it\). repo may itself contain "/" for a nested group \(e.g. "subgroup/project"\).
 
 <a name="Client.CommitURL"></a>
-### func \(\*Client\) CommitURL
+### func \(\*Client\) [CommitURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitlab/gitlab.go#L142>)
 
 ```go
 func (c *Client) CommitURL(sha string) string
@@ -59,8 +60,17 @@ func (c *Client) CommitURL(sha string) string
 
 CommitURL implements backend.Backend.
 
+<a name="Client.CompareURL"></a>
+### func \(\*Client\) [CompareURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitlab/gitlab.go#L147>)
+
+```go
+func (c *Client) CompareURL(from, to string) string
+```
+
+CompareURL implements backend.Backend.
+
 <a name="Client.Publish"></a>
-### func \(\*Client\) Publish
+### func \(\*Client\) [Publish](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitlab/gitlab.go#L87>)
 
 ```go
 func (c *Client) Publish(ctx context.Context, tag string) error
@@ -69,7 +79,7 @@ func (c *Client) Publish(ctx context.Context, tag string) error
 Publish implements backend.Backend: flips the draft's released\_at to now, clearing upcoming\_release.
 
 <a name="Client.ResolveAuthor"></a>
-### func \(\*Client\) ResolveAuthor
+### func \(\*Client\) [ResolveAuthor](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitlab/gitlab.go#L155>)
 
 ```go
 func (c *Client) ResolveAuthor(_ context.Context, _ string) (backend.AuthorReference, bool, error)
@@ -78,7 +88,7 @@ func (c *Client) ResolveAuthor(_ context.Context, _ string) (backend.AuthorRefer
 ResolveAuthor implements backend.Backend. GitLab's "get a single commit" endpoint returns only the raw git author\_name/author\_email, not a linked account — per ADR\-0001, this always reports "not supported" rather than guessing one from an unverified lookup.
 
 <a name="Client.ResolvePR"></a>
-### func \(\*Client\) ResolvePR
+### func \(\*Client\) [ResolvePR](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitlab/gitlab.go#L105>)
 
 ```go
 func (c *Client) ResolvePR(ctx context.Context, sha string) (commit.PRReference, bool, error)
@@ -87,7 +97,7 @@ func (c *Client) ResolvePR(ctx context.Context, sha string) (commit.PRReference,
 ResolvePR implements backend.Backend using GitLab's "list merge requests associated with a commit" endpoint — a documented, reliable lookup \(unlike Forgejo's equivalent, flagged unreliable per ADR\-0001\).
 
 <a name="Client.UpsertDraft"></a>
-### func \(\*Client\) UpsertDraft
+### func \(\*Client\) [UpsertDraft](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitlab/gitlab.go#L70>)
 
 ```go
 func (c *Client) UpsertDraft(ctx context.Context, req backend.UpsertDraftRequest) error

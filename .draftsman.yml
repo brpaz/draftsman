@@ -17,13 +17,19 @@
 # feeds the release body straight into CHANGELOG.md under its own
 # "## {version} - {date}" heading, which duplicated the version right
 # below it otherwise. Everything else matches the built-in default
-# verbatim (see docs/configuration.md#template).
+# verbatim, including the "Full Changelog" compare-link footer (see
+# docs/configuration.md#template).
 template: |
   {{range .Packages}}{{if .Name}}# {{.Name}}{{if .SuggestedVersion}} ({{.SuggestedVersion}}){{end}}
   {{end}}{{range .Sections}}## {{.Name}}
   {{range .Entries}}- {{.Description}}{{if .PR}} ({{if .PR.Link}}[#{{.PR.Number}}]({{.PR.Link}}){{else}}#{{.PR.Number}}{{end}}){{end}} by {{if .AuthorRef}}[@{{.AuthorRef.Login}}]({{.AuthorRef.ProfileURL}}){{else}}{{.Author}}{{end}} ({{if .CommitURL}}[{{.ShortSHA}}]({{.CommitURL}}){{else}}{{.ShortSHA}}{{end}})
   {{end}}
+  {{end}}{{if .Name}}{{if .CompareURL}}
+  **Full Changelog**: {{.CompareURL}}
+  {{end}}{{else}}{{if $.CompareURL}}
+  **Full Changelog**: {{$.CompareURL}}
   {{end}}{{end}}
+  {{end}}
 
 categories:
   - type: fix

@@ -41,7 +41,7 @@ graph TD
 
 **`internal/git`, `internal/commit`, `internal/config`, `internal/version`** — dependency-free building blocks `engine` composes. `git` shells out to the local `git` binary (log, changed files, tags) with no assumptions beyond it being on `PATH`. `commit` parses a raw commit message into a Conventional Commit (type, scope, breaking flag, subject, footers) with no knowledge of git or backends. `config` loads and defaults `.draftsman.yml`. `version` parses/bumps SemVer and matches tags against `tag-format`.
 
-**`internal/backend`** — defines the `Backend` interface (`UpsertDraft`, `Publish`, `ResolvePR`, `CommitURL`, `ResolveAuthor`) that `internal/backend/{github,gitlab,gitea,forgejo}` each implement independently against their respective REST APIs. `draft`/`publish` depend only on this interface, never on a concrete adapter — see [ADR-0002](../adr/0002-continuous-draft-model.md) for why the workflow is "always-current draft, human/CI publishes" rather than stateless one-shot generation, and [ADR-0003](../adr/0003-commit-based-entries.md) for why entries are derived from commits rather than PR metadata.
+**`internal/backend`** — defines the `Backend` interface (`UpsertDraft`, `Publish`, `ResolvePR`, `CommitURL`, `CompareURL`, `ResolveAuthor`) that `internal/backend/{github,gitlab,gitea,forgejo}` each implement independently against their respective REST APIs. `draft`/`publish` depend only on this interface, never on a concrete adapter — see [ADR-0002](../adr/0002-continuous-draft-model.md) for why the workflow is "always-current draft, human/CI publishes" rather than stateless one-shot generation, and [ADR-0003](../adr/0003-commit-based-entries.md) for why entries are derived from commits rather than PR metadata.
 
 ## Why this shape
 

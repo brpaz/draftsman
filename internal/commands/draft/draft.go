@@ -94,7 +94,7 @@ func runMulti(ctx context.Context, cfg *config.Config, b backend.Backend, plan *
 			continue
 		}
 
-		body, err := engine.RenderPlan(cfg.Template, &engine.Plan{Packages: []engine.PackagePlan{pp}})
+		body, err := engine.RenderPlan(cfg.Template, &engine.Plan{Packages: []engine.PackagePlan{pp}}, cfg.FooterEnabled())
 		if err != nil {
 			return fmt.Errorf("%s: rendering package %q: %w", name, pp.Name, err)
 		}

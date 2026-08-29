@@ -14,7 +14,7 @@ Package preview implements the "preview" command: compute entries since the last
 
 
 <a name="New"></a>
-## func New
+## func [New](<https://github.com/brpaz/draftsman/blob/main/internal/commands/preview/preview.go#L23>)
 
 ```go
 func New() *cli.Command

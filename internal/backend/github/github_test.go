@@ -269,6 +269,11 @@ func TestCommitURL_IsGitHubWebLink(t *testing.T) {
 	require.Equal(t, "https://github.com/brpaz/draftsman/commit/abc123", client.CommitURL("abc123"))
 }
 
+func TestCompareURL_IsGitHubWebLink(t *testing.T) {
+	client := github.New("brpaz", "draftsman", "test-token", github.WithBaseURL("https://example.invalid"))
+	require.Equal(t, "https://github.com/brpaz/draftsman/compare/v1.0.0...v1.1.0", client.CompareURL("v1.0.0", "v1.1.0"))
+}
+
 func TestResolveAuthor_LinkedAccount(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/repos/brpaz/draftsman/commits/abc123", r.URL.Path)

@@ -28,7 +28,8 @@ func (f *fakeBackend) Publish(_ context.Context, tag string) error {
 	return nil
 }
 
-func (f *fakeBackend) CommitURL(string) string { return "" }
+func (f *fakeBackend) CommitURL(string) string          { return "" }
+func (f *fakeBackend) CompareURL(string, string) string { return "" }
 
 func (f *fakeBackend) ResolveAuthor(context.Context, string) (backend.AuthorReference, bool, error) {
 	return backend.AuthorReference{}, false, nil

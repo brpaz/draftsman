@@ -19,7 +19,7 @@ Package commit parses Conventional Commit messages.
 
 
 <a name="HasSkipChangelogTag"></a>
-## func HasSkipChangelogTag
+## func [HasSkipChangelogTag](<https://github.com/brpaz/draftsman/blob/main/internal/commit/commit.go#L101>)
 
 ```go
 func HasSkipChangelogTag(message string) bool
@@ -28,7 +28,7 @@ func HasSkipChangelogTag(message string) bool
 HasSkipChangelogTag reports whether message contains a "\[skip changelog\]" tag, case\-insensitive and anywhere in the message text — the same "\[skip ci\]"\-style convention CI systems use, so it works in a single\-line "git commit \-m" without needing a footer trailer. This is a fixed, non\-configurable literal, unlike cfg.SkipChangelogTrailer's footer key.
 
 <a name="Trailers"></a>
-## func Trailers
+## func [Trailers](<https://github.com/brpaz/draftsman/blob/main/internal/commit/commit.go#L109>)
 
 ```go
 func Trailers(message string) map[string]string
@@ -37,7 +37,7 @@ func Trailers(message string) map[string]string
 Trailers returns the git\-trailer\-style footer of a commit message — the contiguous block of "Key: value" lines at the very end, after the last blank line. The header line is never treated as a trailer, even for a single\-line message that happens to contain a colon.
 
 <a name="PRReference"></a>
-## type PRReference
+## type [PRReference](<https://github.com/brpaz/draftsman/blob/main/internal/commit/commit.go#L60-L63>)
 
 PRReference is a pull/merge request number resolved directly from commit message text \(see ADR\-0001\). Link is only populated when the text itself carried a full URL \(Gitea/Forgejo's "Reviewed\-on:" trailer\) — GitHub's "\(\#N\)" squash suffix carries no URL, so Link stays empty for that form; a canonical link for it comes from the live API lookup \(ticket 08\), not from guessing a URL out of thin air here.
 
@@ -49,7 +49,7 @@ type PRReference struct {
 ```
 
 <a name="ExtractPRReference"></a>
-### func ExtractPRReference
+### func [ExtractPRReference](<https://github.com/brpaz/draftsman/blob/main/internal/commit/commit.go#L75>)
 
 ```go
 func ExtractPRReference(message string) (PRReference, bool)
@@ -58,7 +58,7 @@ func ExtractPRReference(message string) (PRReference, bool)
 ExtractPRReference looks for a PR reference embedded directly in a commit's message text: GitHub squash\-merge's "\(\#N\)" title suffix, or Gitea/Forgejo squash\-merge's "Reviewed\-on: .../pulls/N" footer trailer. ok is false when neither form is present — callers attach no reference rather than guessing one \(ADR\-0001\).
 
 <a name="ParsedCommit"></a>
-## type ParsedCommit
+## type [ParsedCommit](<https://github.com/brpaz/draftsman/blob/main/internal/commit/commit.go#L19-L24>)
 
 ParsedCommit is the structured form of a Conventional Commit header.
 
@@ -72,7 +72,7 @@ type ParsedCommit struct {
 ```
 
 <a name="Parse"></a>
-### func Parse
+### func [Parse](<https://github.com/brpaz/draftsman/blob/main/internal/commit/commit.go#L29>)
 
 ```go
 func Parse(message string) (parsed ParsedCommit, ok bool)

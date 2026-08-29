@@ -15,6 +15,7 @@ Package config loads and defaults a repo's .draftsman.yml.
 - [type Config](<#Config>)
   - [func Default\(\) \*Config](<#Default>)
   - [func Load\(path string, required bool\) \(\*Config, error\)](<#Load>)
+  - [func \(c \*Config\) FooterEnabled\(\) bool](<#Config.FooterEnabled>)
 - [type Package](<#Package>)
 
 
@@ -30,7 +31,7 @@ const (
 ```
 
 <a name="Category"></a>
-## type Category
+## type [Category](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L46-L50>)
 
 Category maps a Conventional Commit type — optionally narrowed to a specific scope — to a changelog section name. A commit is matched against the configured Categories in order, first match wins; Scope empty matches any scope for that Type. This lets a scope\-specific rule \(e.g. type "fix", scope "security"\) take a commit before a broader type\-only rule for the same Type, as long as it's listed first. Order in the config also determines section display order.
 
@@ -43,7 +44,7 @@ type Category struct {
 ```
 
 <a name="Config"></a>
-## type Config
+## type [Config](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L60-L76>)
 
 Config is the fully\-defaulted result of loading .draftsman.yml.
 
@@ -58,11 +59,17 @@ type Config struct {
     // single mode {{package}} is accepted but unused.
     TagFormat string `yaml:"tag-format"`
     Template  string `yaml:"template"`
+    // Footer controls whether draftsman appends its own attribution
+    // footer to every rendered changelog body. A pointer so Load can tell
+    // "not set in this repo's config" (nil, keep Default's true) apart
+    // from an explicit "footer: false" (set, false) — a plain bool can't
+    // make that distinction, since both read as the zero value.
+    Footer *bool `yaml:"footer"`
 }
 ```
 
 <a name="Default"></a>
-### func Default
+### func [Default](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L88>)
 
 ```go
 func Default() *Config
@@ -71,7 +78,7 @@ func Default() *Config
 Default returns the built\-in configuration used when no field is overridden — this is also what a repo with no .draftsman.yml gets.
 
 <a name="Load"></a>
-### func Load
+### func [Load](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L108>)
 
 ```go
 func Load(path string, required bool) (*Config, error)
@@ -79,8 +86,17 @@ func Load(path string, required bool) (*Config, error)
 
 Load reads path and applies any fields it sets on top of Default\(\). A missing file is only an error when required is true — callers should pass required = true exactly when the path was explicitly requested \(e.g. an explicit \-\-config flag\), so an absent default path silently falls back to defaults while an absent explicit path is a real error.
 
+<a name="Config.FooterEnabled"></a>
+### func \(\*Config\) [FooterEnabled](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L82>)
+
+```go
+func (c *Config) FooterEnabled() bool
+```
+
+FooterEnabled reports whether c.Footer's attribution footer should be appended. A nil Footer \(any Config not built through Default/Load, e.g. a test\-constructed literal\) defaults to true, same as Default's own value — callers never need to nil\-check Footer themselves.
+
 <a name="Package"></a>
-## type Package
+## type [Package](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L54-L57>)
 
 Package maps a path prefix to a monorepo package name. A commit is attributed to every Package whose Path prefixes one of its changed files.
 

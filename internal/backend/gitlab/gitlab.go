@@ -143,6 +143,11 @@ func (c *Client) CommitURL(sha string) string {
 	return fmt.Sprintf("%s/%s/-/commit/%s", c.baseURL, c.projectPath, sha)
 }
 
+// CompareURL implements backend.Backend.
+func (c *Client) CompareURL(from, to string) string {
+	return fmt.Sprintf("%s/%s/-/compare/%s...%s", c.baseURL, c.projectPath, from, to)
+}
+
 // ResolveAuthor implements backend.Backend. GitLab's "get a single commit"
 // endpoint returns only the raw git author_name/author_email, not a linked
 // account — per ADR-0001, this always reports "not supported" rather than

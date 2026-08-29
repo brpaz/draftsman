@@ -57,6 +57,10 @@ skip-changelog-trailer: Skip-Changelog
 # keep tags distinct) in multi mode.
 tag-format: "{{package}}/v{{version}}"
 
+# Whether draftsman appends its own attribution line after every rendered
+# changelog body. Defaults to true; set to false to omit it.
+footer: true
+
 # Overrides the built-in Markdown template used to render the changelog
 # body. Uncomment to customize; draftsman's built-in default is used when
 # this key is absent.
