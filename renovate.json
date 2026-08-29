@@ -13,18 +13,10 @@
   "minimumReleaseAge": "72 hours",
   "packageRules": [
     {
-      "description": "Group and automerge non-major updates",
-      "matchUpdateTypes": ["minor", "patch"],
-      "groupName": "non-major updates",
-      "automerge": true,
-      "platformAutomerge": true
-    },
-    {
       "description": "Automerge Go module minor and patch updates",
       "matchManagers": ["gomod"],
       "matchUpdateTypes": ["minor", "patch"],
-      "automerge": true,
-      "platformAutomerge": true
+      "automerge": true
     },
     {
       "description": "Group non-major GitHub Actions updates into a single PR and automerge it",
@@ -32,7 +24,6 @@
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "github-actions",
       "automerge": true,
-      "platformAutomerge": true
     },
     {
       "description": "Group major GitHub Actions updates into the same PR, held for manual review",

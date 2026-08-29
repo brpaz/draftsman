@@ -134,12 +134,12 @@ jobs:
         with:
           images: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            
+
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=branch
             type=semver,pattern=v{{version}}
             type=sha,format=short
-            
+
 
       - name: Build image
         uses: docker/build-push-action@v6
@@ -155,8 +155,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           push: false
           load: true
-
-      
 
       - name: Final Build and Push to Registry
         uses: docker/build-push-action@v6
@@ -198,7 +196,7 @@ jobs:
           args: release --clean --snapshot
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  
+
       - name: Run GoReleaser (release)
         uses: goreleaser/goreleaser-action@v6
         if: github.event_name == 'release'
@@ -206,7 +204,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  
+
       - name: Upload Artifacts
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v5
@@ -214,5 +212,3 @@ jobs:
           name: build-artifacts
           path: dist/*
           retention-days: 7
-  
-
