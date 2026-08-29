@@ -82,12 +82,15 @@ func (c *Client) UpsertDraft(ctx context.Context, req backend.UpsertDraftRequest
 // defaults to the repository's default branch HEAD at publish time, exactly
 // what the caller expects "publish" to mean.
 //
-// The PATCH must explicitly set tag_name to the real tag: a draft's stored
-// tag_name is GitHub's own "untagged-<hash>" placeholder (see
-// findReleaseByTag) until a real tag exists, and that placeholder is
-// sticky — flipping draft:false without also resupplying tag_name creates
-// the tag using the placeholder string itself, not the one originally
-// requested at draft time.
+// This must be two separate PATCH requests, not one combined payload —
+// confirmed against the live API (see brpaz/draftsman's own v0.2.0
+// release). A draft's stored tag_name is GitHub's own "untagged-<hash>"
+// placeholder (see findReleaseByTag) until a real tag exists; sending
+// draft:false and tag_name together in one request still creates the tag
+// under the placeholder, silently ignoring the resupplied tag_name for
+// that transaction. Setting tag_name first, in its own request while
+// still a draft, then flipping draft:false in a second request, produces
+// the correct tag every time.
 func (c *Client) Publish(ctx context.Context, tag string) error {
 	existing, err := c.findReleaseByTag(ctx, tag)
 	if err != nil {
@@ -100,11 +103,15 @@ func (c *Client) Publish(ctx context.Context, tag string) error {
 		// Already published — publish is idempotent on repeated runs.
 		return nil
 	}
-	return c.publishRelease(ctx, existing.ID, tag)
+
+	if err := c.patchRelease(ctx, existing.ID, map[string]any{"tag_name": tag}); err != nil {
+		return fmt.Errorf("setting tag_name before publish: %w", err)
+	}
+	return c.patchRelease(ctx, existing.ID, map[string]any{"draft": false})
 }
 
-func (c *Client) publishRelease(ctx context.Context, id int64, tag string) error {
-	payload, err := json.Marshal(map[string]any{"draft": false, "tag_name": tag})
+func (c *Client) patchRelease(ctx context.Context, id int64, fields map[string]any) error {
+	payload, err := json.Marshal(fields)
 	if err != nil {
 		return err
 	}
@@ -316,32 +323,10 @@ func (c *Client) createDraft(ctx context.Context, req backend.UpsertDraftRequest
 }
 
 func (c *Client) updateRelease(ctx context.Context, id int64, req backend.UpsertDraftRequest) error {
-	payload, err := json.Marshal(map[string]any{
+	return c.patchRelease(ctx, id, map[string]any{
 		"name": releaseName(req),
 		"body": req.Body,
 	})
-	if err != nil {
-		return err
-	}
-
-	url := fmt.Sprintf("%s/repos/%s/%s/releases/%d", c.baseURL, c.owner, c.repo, id)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPatch, url, bytes.NewReader(payload))
-	if err != nil {
-		return err
-	}
-	c.setHeaders(httpReq)
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return unexpectedStatus(resp)
-	}
-	return nil
 }
 
 func releaseName(req backend.UpsertDraftRequest) string {

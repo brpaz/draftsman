@@ -164,8 +164,11 @@ func TestUpsertDraft_PaginatesUntilFound(t *testing.T) {
 }
 
 func TestPublish_FlipsDraftToPublished(t *testing.T) {
-	var patchBody map[string]any
-	patched := false
+	// Each PATCH decoded into its own fresh map — reusing one map across
+	// requests would let json.Decode's "merge into existing map" behavior
+	// hide a regression back to a single combined payload (see
+	// TestPublish_SendsTagNameAndDraftAsTwoSeparateSequentialPatches).
+	var patchBodies []map[string]any
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -173,8 +176,9 @@ func TestPublish_FlipsDraftToPublished(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`[{"id": 7, "tag_name": "v1.0.0", "draft": true}]`))
 		case r.Method == http.MethodPatch && r.URL.Path == "/repos/brpaz/draftsman/releases/7":
-			require.NoError(t, json.NewDecoder(r.Body).Decode(&patchBody))
-			patched = true
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			patchBodies = append(patchBodies, body)
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"id": 7, "tag_name": "v1.0.0", "draft": false}`))
 		default:
@@ -187,14 +191,13 @@ func TestPublish_FlipsDraftToPublished(t *testing.T) {
 	err := client.Publish(context.Background(), "v1.0.0")
 	require.NoError(t, err)
 
-	require.True(t, patched)
-	assert.Equal(t, false, patchBody["draft"])
-	assert.Equal(t, "v1.0.0", patchBody["tag_name"])
+	require.Len(t, patchBodies, 2, "must be two separate PATCH requests, not one combined payload")
+	assert.Equal(t, map[string]any{"tag_name": "v1.0.0"}, patchBodies[0], "tag_name set first, while still a draft")
+	assert.Equal(t, map[string]any{"draft": false}, patchBodies[1], "draft flipped second, in its own request")
 }
 
 func TestPublish_ExplicitlySetsTagName_OverridingGitHubsUntaggedPlaceholder(t *testing.T) {
-	var patchBody map[string]any
-	patched := false
+	var patchBodies []map[string]any
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -206,8 +209,9 @@ func TestPublish_ExplicitlySetsTagName_OverridingGitHubsUntaggedPlaceholder(t *t
 			// with the placeholder itself.
 			_, _ = w.Write([]byte(`[{"id": 7, "tag_name": "untagged-abc123", "name": "v1.0.0", "draft": true}]`))
 		case r.Method == http.MethodPatch && r.URL.Path == "/repos/brpaz/draftsman/releases/7":
-			require.NoError(t, json.NewDecoder(r.Body).Decode(&patchBody))
-			patched = true
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			patchBodies = append(patchBodies, body)
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"id": 7, "tag_name": "v1.0.0", "draft": false}`))
 		default:
@@ -220,8 +224,8 @@ func TestPublish_ExplicitlySetsTagName_OverridingGitHubsUntaggedPlaceholder(t *t
 	err := client.Publish(context.Background(), "v1.0.0")
 	require.NoError(t, err)
 
-	require.True(t, patched)
-	assert.Equal(t, "v1.0.0", patchBody["tag_name"], "must send the real tag, not GitHub's untagged- placeholder")
+	require.NotEmpty(t, patchBodies)
+	assert.Equal(t, "v1.0.0", patchBodies[0]["tag_name"], "must send the real tag, not GitHub's untagged- placeholder, and before flipping draft")
 }
 
 func TestPublish_AlreadyPublishedIsIdempotent(t *testing.T) {
