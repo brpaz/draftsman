@@ -1,0 +1,45 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests", "docker:pinDigests"],
+  "prHourlyLimit": 5,
+  "prConcurrentLimit": 20,
+  "labels": ["dependencies"],
+  "reviewers": ["brpaz"],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true
+  },
+  "postUpdateOptions": ["gomodTidy"],
+  "minimumReleaseAge": "72 hours",
+  "packageRules": [
+    {
+      "description": "Group and automerge non-major updates",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "non-major updates",
+      "automerge": true,
+      "platformAutomerge": true
+    },
+    {
+      "description": "Automerge Go module minor and patch updates",
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "platformAutomerge": true
+    },
+    {
+      "description": "Group non-major GitHub Actions updates into a single PR and automerge it",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "github-actions",
+      "automerge": true,
+      "platformAutomerge": true
+    },
+    {
+      "description": "Group major GitHub Actions updates into the same PR, held for manual review",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "github-actions",
+      "automerge": false
+    }
+  ]
+}

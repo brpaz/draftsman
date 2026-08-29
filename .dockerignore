@@ -1,0 +1,13 @@
+## Ignore everything by default
+**
+
+## Only include the application source files and essential config files
+!README.md
+!LICENSE
+!CHANGELOG.md
+!cmd
+!internal
+!pkg
+!go.mod
+!go.sum
+*.go

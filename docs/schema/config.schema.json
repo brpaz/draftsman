@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://brpaz.github.io/draftsman/schema/config.schema.json",
+  "title": "draftsman configuration",
+  "description": "Schema for .draftsman.yml. Every field is optional — an absent file, or a file that sets nothing, falls back to draftsman's built-in defaults. See https://brpaz.github.io/draftsman/configuration/ for the full reference.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["single", "multi"],
+      "default": "single",
+      "description": "single: one repo-wide Draft Release/version; packages (if set) only section entries within it. multi: one independent Draft Release, version, and tag per Package."
+    },
+    "categories": {
+      "type": "array",
+      "description": "Conventional Commit type (optionally narrowed by scope) to changelog section mapping, in display order. A commit is matched against this list in order, first match wins — list scope-specific rules before the broader type-only rule for the same type, or the type-only rule shadows it. Setting this at all is a full replace of the built-in default, not a merge — list every type/section rule you want.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "section"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Conventional Commit type, e.g. feat, fix, perf, docs."
+          },
+          "scope": {
+            "type": "string",
+            "description": "Optional Conventional Commit scope, e.g. security, deps. Omitted or empty matches any scope for this type."
+          },
+          "section": {
+            "type": "string",
+            "description": "Changelog section heading this type/scope rule is grouped under."
+          }
+        }
+      },
+      "default": [
+        { "type": "feat", "section": "Features" },
+        { "type": "fix", "section": "Bug Fixes" }
+      ]
+    },
+    "packages": {
+      "type": "array",
+      "description": "Monorepo path-prefix to package-name mapping. A commit is attributed to every Package whose path prefixes one of its changed files. Setting this at all is a full replace of the (empty) default.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "name"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path prefix, relative to the repo root, e.g. packages/api."
+          },
+          "name": {
+            "type": "string",
+            "description": "Package display name, used in changelog headings and the tag-format {{package}} placeholder."
+          }
+        }
+      }
+    },
+    "skip-changelog-trailer": {
+      "type": "string",
+      "default": "Skip-Changelog",
+      "description": "Commit footer trailer key. A commit whose footer contains this key is excluded from the changelog entirely."
+    },
+    "tag-format": {
+      "type": "string",
+      "default": "v{{version}}",
+      "description": "Template used both to locate the previous release tag and to render a new one. {{version}} is always available. {{package}} is available (and typically required, to keep tags distinct) in multi mode; in single mode it's accepted but always renders empty."
+    },
+    "template": {
+      "type": "string",
+      "description": "Go text/template overriding the built-in changelog body template. Available data: .SuggestedVersion (single mode), .Packages (each with .Name, .SuggestedVersion, .Sections), and within a Section: .Name and .Entries (each with .Description and optional .PR.{Number,Link})."
+    }
+  }
+}

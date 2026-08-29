@@ -1,0 +1,96 @@
+name: Security Scan
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  #schedule:
+  # Run daily at 2 AM UTC
+  #- cron: "0 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  trivy-scan-repo:
+    name: Trivy - Repository Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run Trivy vulnerability scanner (repo)
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          output: trivy-repo-results.txt
+          severity: "CRITICAL,HIGH"
+
+      - name: Publish Trivy Output to Summary
+        if: ${{ !cancelled() }}
+        run: |
+          if [[ -s trivy-repo-results.txt ]]; then
+            {
+              echo "### Repo Security Output"
+              echo "<details><summary>Click to expand</summary>"
+              echo ""
+              echo '```terraform'
+              cat trivy-repo-results.txt
+              echo '```'
+              echo "</details>"
+            } >> $GITHUB_STEP_SUMMARY
+          fi
+
+  
+  trivy-scan-docker:
+    name: Trivy - Docker Image Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          tags: test-image:${{ github.sha }}
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner (image)
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: "image"
+          image-ref: "test-image:${{ github.sha }}"
+          output: "trivy-image-results.txt"
+          severity: "CRITICAL,HIGH"
+
+      - name: Publish Trivy Output to Summary
+        if: ${{ !cancelled() }}
+        run: |
+          if [[ -s trivy-image-results.txt ]]; then
+            {
+              echo "### Image Security Output"
+              echo "<details><summary>Click to expand</summary>"
+              echo ""
+              echo '```terraform'
+              cat trivy-image-results.txt
+              echo '```'
+              echo "</details>"
+            } >> $GITHUB_STEP_SUMMARY
+          fi
+  

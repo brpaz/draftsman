@@ -1,0 +1,116 @@
+name: "Draftsman"
+description: "Continuously-updated draft release notes from Conventional Commits, published across GitHub, Gitea, and Forgejo."
+author: "brpaz"
+
+branding:
+  icon: "tag"
+  color: "blue"
+
+inputs:
+  command:
+    description: "Which draftsman command to run: draft, preview, or publish."
+    required: true
+  config-path:
+    description: "Path to .draftsman.yml. Leave unset to use draftsman's own default (.draftsman.yml, or built-in defaults if that file doesn't exist)."
+    required: false
+    default: ""
+  token:
+    description: "Backend API token. Required for draft/publish; unused by preview unless PR-Reference enrichment against a backend is wanted."
+    required: false
+    default: ""
+  backend:
+    description: "Git backend: github, gitea, or forgejo. Required for draft/publish."
+    required: false
+    default: ""
+  package:
+    description: "Package name to scope this operation to (multi mode only)."
+    required: false
+    default: ""
+  version:
+    description: "Override the auto-computed version. Only used by the publish command."
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install draftsman
+      shell: bash
+      env:
+        DRAFTSMAN_ACTION_REPO: ${{ github.action_repository }}
+        DRAFTSMAN_ACTION_REF: ${{ github.action_ref }}
+      run: |
+        set -euo pipefail
+
+        if [ -z "${DRAFTSMAN_ACTION_REPO:-}" ] || [ -z "${DRAFTSMAN_ACTION_REF:-}" ]; then
+          echo "::error::could not determine the Action's own repo/ref (github.action_repository / github.action_ref) — this Action must be invoked as 'uses: owner/repo@tag', not from a local checkout" >&2
+          exit 1
+        fi
+
+        case "$(uname -s)" in
+          Linux) os=Linux ;;
+          Darwin) os=Darwin ;;
+          MINGW*|MSYS*|CYGWIN*) os=Windows ;;
+          *) echo "::error::unsupported runner OS: $(uname -s)" >&2; exit 1 ;;
+        esac
+
+        case "$(uname -m)" in
+          x86_64|amd64) arch=x86_64 ;;
+          aarch64|arm64) arch=arm64 ;;
+          i386|i686) arch=i386 ;;
+          *) echo "::error::unsupported runner architecture: $(uname -m)" >&2; exit 1 ;;
+        esac
+
+        asset="draftsman_${os}_${arch}.tar.gz"
+        base_url="https://github.com/${DRAFTSMAN_ACTION_REPO}/releases/download/${DRAFTSMAN_ACTION_REF}"
+
+        workdir="$(mktemp -d)"
+        trap 'rm -rf "$workdir"' EXIT
+
+        echo "::group::Downloading ${asset} (${DRAFTSMAN_ACTION_REPO}@${DRAFTSMAN_ACTION_REF})"
+        curl -sSfL -o "${workdir}/${asset}" "${base_url}/${asset}"
+        curl -sSfL -o "${workdir}/checksums.txt" "${base_url}/checksums.txt"
+        echo "::endgroup::"
+
+        (
+          cd "$workdir"
+          grep " ${asset}\$" checksums.txt | sha256sum -c -
+        )
+
+        tar -xzf "${workdir}/${asset}" -C "$workdir"
+
+        bin="${workdir}/draftsman"
+        [ "$os" = "Windows" ] && bin="${bin}.exe"
+        chmod +x "$bin"
+
+        echo "$workdir" >> "$GITHUB_PATH"
+
+    - name: Run draftsman
+      shell: bash
+      env:
+        INPUT_COMMAND: ${{ inputs.command }}
+        INPUT_CONFIG_PATH: ${{ inputs.config-path }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_BACKEND: ${{ inputs.backend }}
+        INPUT_PACKAGE: ${{ inputs.package }}
+        INPUT_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+
+        case "$INPUT_COMMAND" in
+          draft|preview|publish) ;;
+          *) echo "::error::command must be one of draft, preview, publish — got '${INPUT_COMMAND}'" >&2; exit 1 ;;
+        esac
+
+        args=("$INPUT_COMMAND")
+        [ -n "$INPUT_CONFIG_PATH" ] && args+=(--config "$INPUT_CONFIG_PATH")
+        [ -n "$INPUT_BACKEND" ] && args+=(--backend "$INPUT_BACKEND")
+        [ -n "$INPUT_TOKEN" ] && args+=(--token "$INPUT_TOKEN")
+        [ -n "$INPUT_PACKAGE" ] && args+=(--package "$INPUT_PACKAGE")
+        # --version only exists on the publish command; draft/preview don't
+        # define the flag at all, so it must never be passed to them.
+        if [ "$INPUT_COMMAND" = "publish" ] && [ -n "$INPUT_VERSION" ]; then
+          args+=(--version "$INPUT_VERSION")
+        fi
+
+        draftsman "${args[@]}"

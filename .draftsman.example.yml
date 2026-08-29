@@ -1,0 +1,70 @@
+# Full example .draftsman.yml — every field is optional; omit anything you
+# want draftsman's built-in default for. See docs/configuration.md for the
+# full field reference.
+#
+# yaml-language-server: $schema=https://brpaz.github.io/draftsman/schema/config.schema.json
+
+# single: one repo-wide Draft Release/version.
+# multi: one independent Draft Release, version, and tag per package below.
+mode: multi
+
+# Conventional Commit type (optionally narrowed by scope) -> changelog
+# section, in display order. A commit is matched in list order, first match
+# wins — scope-specific rules must come before the type-only rule for the
+# same type, or it never gets reached. Setting categories at all replaces
+# the built-in feat/fix-only default entirely.
+categories:
+  - type: fix
+    scope: security
+    section: Security
+  - type: feat
+    section: Features
+  - type: fix
+    section: Bug Fixes
+  - type: perf
+    section: Performance
+  - type: refactor
+    section: Refactors
+  - type: docs
+    section: Documentation
+  - type: chore
+    scope: deps
+    section: Dependency Updates
+
+# Path-prefix -> package name, for monorepos. A commit touching files under
+# more than one prefix gets entries in every matching package.
+packages:
+  - path: packages/api
+    name: API
+  - path: packages/web
+    name: Web
+  - path: packages/cli
+    name: CLI
+
+# Commits with this trailer in their footer are excluded from the changelog.
+#
+#   fix: correct off-by-one in pagination
+#
+#   Skip-Changelog: true
+#
+# A "[skip changelog]" tag anywhere in the message does the same thing for a
+# single-line commit, [skip ci]-style — always recognized, not configurable:
+#
+#   git commit -m "chore: bump lockfile [skip changelog]"
+skip-changelog-trailer: Skip-Changelog
+
+# {{version}} is always available; {{package}} is available (and needed to
+# keep tags distinct) in multi mode.
+tag-format: "{{package}}/v{{version}}"
+
+# Overrides the built-in Markdown template used to render the changelog
+# body. Uncomment to customize; draftsman's built-in default is used when
+# this key is absent.
+# template: |
+#   {{if .SuggestedVersion}}# {{.SuggestedVersion}}
+#
+#   {{end}}{{range .Packages}}{{if .Name}}# {{.Name}}{{if .SuggestedVersion}} ({{.SuggestedVersion}}){{end}}
+#   {{end}}{{range .Sections}}## {{.Name}}
+#   {{range .Entries}}- {{.Description}}{{if .PR}} ({{if .PR.Link}}[#{{.PR.Number}}]({{.PR.Link}}){{else}}#{{.PR.Number}}{{end}}){{end}}
+#   {{end}}
+#   {{end}}{{end}}

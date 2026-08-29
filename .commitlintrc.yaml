@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://github.com/KeisukeYamashita/commitlint-rs/releases/download/v0.2.2/schema.json
+rules:
+  description-empty:
+    level: warning
+  subject-empty:
+    level: error
+  type-empty:
+    level: error

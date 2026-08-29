@@ -1,0 +1,288 @@
+// Package github implements backend.Backend against the GitHub REST API.
+package github
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+
+	"github.com/brpaz/draftsman/internal/backend"
+	"github.com/brpaz/draftsman/internal/commit"
+)
+
+const defaultBaseURL = "https://api.github.com"
+
+// maxListPages bounds how many pages of releases UpsertDraft will scan
+// looking for an existing release matching a tag, so a repo with an
+// unexpectedly huge release history fails loudly instead of looping forever.
+const maxListPages = 20
+
+// Client implements backend.Backend against the GitHub REST API.
+type Client struct {
+	owner, repo, token string
+	baseURL            string
+	httpClient         *http.Client
+}
+
+var _ backend.Backend = (*Client)(nil)
+
+// Option configures a Client.
+type Option func(*Client)
+
+// WithBaseURL overrides the API base URL — tests point this at an httptest
+// server instead of the real api.github.com.
+func WithBaseURL(url string) Option {
+	return func(c *Client) { c.baseURL = url }
+}
+
+// New returns a Client for owner/repo, authenticated with token.
+func New(owner, repo, token string, opts ...Option) *Client {
+	c := &Client{
+		owner:      owner,
+		repo:       repo,
+		token:      token,
+		baseURL:    defaultBaseURL,
+		httpClient: http.DefaultClient,
+	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
+}
+
+type release struct {
+	ID      int64  `json:"id"`
+	TagName string `json:"tag_name"`
+	Draft   bool   `json:"draft"`
+}
+
+// UpsertDraft implements backend.Backend.
+func (c *Client) UpsertDraft(ctx context.Context, req backend.UpsertDraftRequest) error {
+	existing, err := c.findReleaseByTag(ctx, req.Tag)
+	if err != nil {
+		return fmt.Errorf("finding existing release for tag %q: %w", req.Tag, err)
+	}
+
+	if existing == nil {
+		return c.createDraft(ctx, req)
+	}
+	if !existing.Draft {
+		return fmt.Errorf("release for tag %q already exists and is published, refusing to modify it", req.Tag)
+	}
+	return c.updateRelease(ctx, existing.ID, req)
+}
+
+// Publish implements backend.Backend. It flips the draft release matching
+// tag to published. GitHub creates the underlying tag at this point (drafts
+// have none yet), pointed at target_commitish — left unset here, so it
+// defaults to the repository's default branch HEAD at publish time, exactly
+// what the caller expects "publish" to mean.
+func (c *Client) Publish(ctx context.Context, tag string) error {
+	existing, err := c.findReleaseByTag(ctx, tag)
+	if err != nil {
+		return fmt.Errorf("finding release for tag %q: %w", tag, err)
+	}
+	if existing == nil {
+		return fmt.Errorf("no draft release found for tag %q", tag)
+	}
+	if !existing.Draft {
+		// Already published — publish is idempotent on repeated runs.
+		return nil
+	}
+	return c.publishRelease(ctx, existing.ID)
+}
+
+func (c *Client) publishRelease(ctx context.Context, id int64) error {
+	payload, err := json.Marshal(map[string]any{"draft": false})
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/repos/%s/%s/releases/%d", c.baseURL, c.owner, c.repo, id)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPatch, url, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	c.setHeaders(httpReq)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return unexpectedStatus(resp)
+	}
+	return nil
+}
+
+// ResolvePR implements backend.Backend using GitHub's "list pull requests
+// associated with a commit" endpoint — reliable on GitHub (unlike Gitea,
+// which has no equivalent, or Forgejo, whose equivalent is unreliable; see
+// ADR-0001, where those adapters' ResolvePR always returns ok=false).
+func (c *Client) ResolvePR(ctx context.Context, sha string) (commit.PRReference, bool, error) {
+	url := fmt.Sprintf("%s/repos/%s/%s/commits/%s/pulls", c.baseURL, c.owner, c.repo, sha)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return commit.PRReference{}, false, err
+	}
+	c.setHeaders(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return commit.PRReference{}, false, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return commit.PRReference{}, false, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		return commit.PRReference{}, false, unexpectedStatus(resp)
+	}
+
+	var pulls []struct {
+		Number  int    `json:"number"`
+		HTMLURL string `json:"html_url"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&pulls); err != nil {
+		return commit.PRReference{}, false, fmt.Errorf("decoding pulls for %s: %w", sha, err)
+	}
+	if len(pulls) == 0 {
+		return commit.PRReference{}, false, nil
+	}
+
+	return commit.PRReference{Number: pulls[0].Number, Link: pulls[0].HTMLURL}, true, nil
+}
+
+// findReleaseByTag looks for a release matching tag. GitHub's "get release
+// by tag" endpoint doesn't reliably return draft releases (they have no
+// underlying git tag until published), so this lists releases instead and
+// filters client-side — the only correct way to find an existing draft.
+func (c *Client) findReleaseByTag(ctx context.Context, tag string) (*release, error) {
+	for page := 1; page <= maxListPages; page++ {
+		releases, err := c.listReleasesPage(ctx, page)
+		if err != nil {
+			return nil, err
+		}
+		if len(releases) == 0 {
+			return nil, nil
+		}
+		for _, r := range releases {
+			if r.TagName == tag {
+				return &r, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("exceeded %d pages scanning releases for tag %q", maxListPages, tag)
+}
+
+func (c *Client) listReleasesPage(ctx context.Context, page int) ([]release, error) {
+	url := fmt.Sprintf("%s/repos/%s/%s/releases?per_page=100&page=%d", c.baseURL, c.owner, c.repo, page)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	c.setHeaders(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, unexpectedStatus(resp)
+	}
+
+	var releases []release
+	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
+		return nil, fmt.Errorf("decoding releases: %w", err)
+	}
+	return releases, nil
+}
+
+func (c *Client) createDraft(ctx context.Context, req backend.UpsertDraftRequest) error {
+	payload, err := json.Marshal(map[string]any{
+		"tag_name": req.Tag,
+		"name":     releaseName(req),
+		"body":     req.Body,
+		"draft":    true,
+	})
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/repos/%s/%s/releases", c.baseURL, c.owner, c.repo)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	c.setHeaders(httpReq)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusCreated {
+		return unexpectedStatus(resp)
+	}
+	return nil
+}
+
+func (c *Client) updateRelease(ctx context.Context, id int64, req backend.UpsertDraftRequest) error {
+	payload, err := json.Marshal(map[string]any{
+		"name": releaseName(req),
+		"body": req.Body,
+	})
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/repos/%s/%s/releases/%d", c.baseURL, c.owner, c.repo, id)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPatch, url, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	c.setHeaders(httpReq)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return unexpectedStatus(resp)
+	}
+	return nil
+}
+
+func releaseName(req backend.UpsertDraftRequest) string {
+	if req.Name != "" {
+		return req.Name
+	}
+	return req.Tag
+}
+
+func (c *Client) setHeaders(req *http.Request) {
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+}
+
+func unexpectedStatus(resp *http.Response) error {
+	body, _ := io.ReadAll(resp.Body)
+	return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
+}

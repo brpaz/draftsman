@@ -1,0 +1,69 @@
+- name: breaking
+  color: "d73a4a"
+  description: "Changes that break backward compatibility"
+
+- name: feature
+  color: "a2eeef"
+  description: "New features or improvements"
+
+- name: enhancement
+  color: "84b6eb"
+  description: "Enhancements to existing features"
+
+- name: bug
+  color: "d73a4a"
+  description: "Bug fixes"
+
+- name: fix
+  color: "e99695"
+  description: "Pull request for bug fixes"
+
+- name: security
+  color: "ee0701"
+  description: "Security-related updates"
+
+- name: performance
+  color: "d4c5f9"
+  description: "Performance improvements or issues"
+
+- name: maintenance
+  color: "fef2c0"
+  description: "General upkeep and refactoring"
+
+- name: docs
+  color: "0075ca"
+  description: "Documentation improvements"
+
+- name: dependencies
+  color: "0366d6"
+  description: "Dependency updates"
+
+# Size labels (T-shirt sizing)
+- name: size/XS
+  color: "c2e0c6"
+  description: "Extra small (half a day)"
+
+- name: size/S
+  color: "c2e0c6"
+  description: "Small (1-2 days)"
+
+- name: size/M
+  color: "bfd4f2"
+  description: "Medium (3-5 days)"
+
+- name: size/L
+  color: "e99695"
+  description: "Large (~5-10 days)"
+
+- name: size/XL
+  color: "b60205"
+  description: "Extra large (10+ days)"
+
+# Community labels
+- name: good first issue
+  color: "7057ff"
+  description: "Good for newcomers"
+
+- name: help wanted
+  color: "008672"
+  description: "Help wanted"

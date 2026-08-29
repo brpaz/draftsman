@@ -1,0 +1,21 @@
+# Lefthook configuration file
+# Check https://lefthook.dev/configuration/index.html
+commit-msg:
+  commands:
+    commitlint:
+      run: commitlint --edit {1}
+
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      glob: "*.go"
+      run: golangci-lint run --fix ./...
+      stage_fixed: true
+    docs:
+      run: task gomarkdoc
+      glob: "*.go"
+      stage_fixed: true
+    tests:
+      glob: "*.go"
+      run: task test

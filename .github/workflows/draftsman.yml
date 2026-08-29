@@ -1,0 +1,36 @@
+name: Update draft release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  draft:
+    name: Draft release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history — draftsman walks commits since the last tag
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: "go.mod"
+          cache: false
+
+      # This repo has no published release yet, so it can't reference itself
+      # via `uses: brpaz/draftsman@v1` the way downstream consumers do —
+      # build from source instead. Switch to the composite Action once a v1
+      # tag exists.
+      - name: Build draftsman
+        run: go build -o /tmp/draftsman ./cmd/draftsman
+
+      - name: Draft release
+        run: /tmp/draftsman draft
+        env:
+          DRAFTSMAN_BACKEND: github
+          DRAFTSMAN_TOKEN: ${{ secrets.GITHUB_TOKEN }}

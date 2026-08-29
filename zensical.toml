@@ -1,0 +1,63 @@
+[project]
+site_name = "draftsman"
+site_description = "Generates release notes from Conventional Commits, publishing them as a live draft release across multiple git backends."
+site_author = "Bruno Paz"
+site_url = "https://brpaz.github.io/draftsman/"
+repo_url = "https://github.com/brpaz/draftsman"
+copyright = """
+Copyright &copy; 2026 Bruno Paz
+"""
+
+nav = [
+  { "Home" = "README.md" },
+  { "Installation" = "installation.md" },
+  { "Configuration" = "configuration.md" },
+  { "CLI Reference" = "cli.md" },
+  { "Git Workflows" = "workflows.md" },
+  { "Provider setup" = [
+    "providers/index.md",
+    { "GitHub" = "providers/github.md" },
+    { "Gitea" = "providers/gitea.md" },
+    { "Forgejo" = "providers/forgejo.md" },
+  ] },
+  { "Migration Guides" = [
+    { "From release-drafter" = "migrating/from-release-drafter.md" },
+  ] },
+  { "Development" = [
+    "development/index.md",
+    { "Architecture" = "development/architecture.md" },
+    { "Architecture Decision Records" = [
+      "adr/0001-pr-linkage-strategy.md",
+      "adr/0002-continuous-draft-model.md",
+      "adr/0003-commit-based-entries.md",
+      "adr/0004-single-vs-multi-release-mode.md",
+    ] },
+  ] },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "content.code.copy",
+  "content.code.select",
+  "navigation.instant",
+  "navigation.instant.prefetch",
+  "navigation.tracking",
+  "navigation.top",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.markdown_extensions]
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]

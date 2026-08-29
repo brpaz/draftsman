@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://brpaz.github.io/draftsman/schema/config.schema.json
+#
+# Dogfooding: this repo drafts its own release notes with draftsman instead
+# of release-drafter. See .github/workflows/draftsman.yml and
+# docs/migrating/from-release-drafter.md for the translation this was based
+# on. mode/tag-format/template are all left at draftsman's built-in defaults
+# (single mode, "v{{version}}", built-in template) — this repo is a single
+# package, and "v"-prefixed tags match the composite Action's own
+# version-pinning convention (`uses: brpaz/draftsman@v1`).
+#
+# The scope-specific fix/security and chore/deps rules below replicate the
+# old release-drafter-config.yml's label-based "Security"/"Dependency
+# Updates" sections, which type-only categories couldn't express.
+
+categories:
+  - type: fix
+    scope: security
+    section: 🔐 Security updates
+  - type: feat
+    section: 🚀 Features
+  - type: fix
+    section: 🐛 Bug Fixes
+  - type: docs
+    section: 📄 Documentation
+  - type: refactor
+    section: ♻️ Refactors
+  - type: test
+    section: ✅ Tests
+  - type: ci
+    section: ⚙️ CI
+  - type: chore
+    scope: deps
+    section: 🧩 Dependency Updates
+  - type: chore
+    section: ⚠️ Maintenance
