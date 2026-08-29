@@ -429,13 +429,26 @@ func TestCompute_NoBumpWorthyEntries_NoSuggestion(t *testing.T) {
 	dir := newRepo(t)
 	commitMessage(t, dir, "feat: add login page", 0)
 	tagRepo(t, dir, "v1.0.0")
+	commitMessage(t, dir, "docs: update readme", 1)
+
+	plan, err := engine.Compute(context.Background(), dir, config.Default(), nil)
+	require.NoError(t, err)
+
+	require.Equal(t, "1.0.0", plan.PreviousVersion)
+	require.Empty(t, plan.SuggestedVersion, "docs alone doesn't warrant a release")
+}
+
+func TestCompute_Chore_BumpsPatch(t *testing.T) {
+	dir := newRepo(t)
+	commitMessage(t, dir, "feat: add login page", 0)
+	tagRepo(t, dir, "v1.0.0")
 	commitMessage(t, dir, "chore: bump deps", 1)
 
 	plan, err := engine.Compute(context.Background(), dir, config.Default(), nil)
 	require.NoError(t, err)
 
 	require.Equal(t, "1.0.0", plan.PreviousVersion)
-	require.Empty(t, plan.SuggestedVersion, "chore alone doesn't warrant a release")
+	require.Equal(t, "1.0.1", plan.SuggestedVersion, "chore warrants a patch release")
 }
 
 func TestCompute_AttachesPRReferenceFromCommitText(t *testing.T) {

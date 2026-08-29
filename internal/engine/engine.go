@@ -319,7 +319,7 @@ func bumpFor(parsed commit.ParsedCommit) version.Bump {
 		return version.BumpMajor
 	case parsed.Type == "feat":
 		return version.BumpMinor
-	case parsed.Type == "fix":
+	case parsed.Type == "fix", parsed.Type == "chore":
 		return version.BumpPatch
 	default:
 		return version.BumpNone
