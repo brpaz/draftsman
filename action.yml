@@ -64,10 +64,9 @@ runs:
         asset="draftsman_${os}_${arch}.tar.gz"
         base_url="https://github.com/${DRAFTSMAN_ACTION_REPO}/releases/download/${DRAFTSMAN_ACTION_REF}"
 
-        # Deliberately not cleaned up here: this dir is added to $GITHUB_PATH
-        # below so the "Run draftsman" step can find the binary, and a trap
-        # tied to this step's own shell would delete it before that step
-        # runs. The runner reclaims the whole job workspace afterward.
+        # Must survive past this step: it's added to $GITHUB_PATH below so
+        # the "Run draftsman" step can find the binary there. The runner
+        # reclaims the whole job workspace once the job ends.
         workdir="$(mktemp -d)"
 
         echo "::group::Downloading ${asset} (${DRAFTSMAN_ACTION_REPO}@${DRAFTSMAN_ACTION_REF})"
