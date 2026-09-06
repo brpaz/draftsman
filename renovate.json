@@ -6,19 +6,42 @@
     ":prConcurrentLimit10",
     "security:gomodIndirectSecurityUpdates"
   ],
-  "labels": ["dependencies"],
-  "reviewers": ["brpaz"],
+  "labels": [
+    "dependencies"
+  ],
+  "reviewers": [
+    "brpaz"
+  ],
   "minimumReleaseAge": "3 days",
   "vulnerabilityAlerts": {
     "enabled": true,
-    "labels": ["security"]
+    "labels": [
+      "security"
+    ]
   },
   "osvVulnerabilityAlerts": true,
   "packageRules": [
     {
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "groupName": "github actions"
+    },
+    {
+      "description": "Sync Go version across go.mod and Dockerfile",
+      "matchDatasources": [
+        "golang-version",
+        "docker"
+      ],
+      "matchPackageNames": [
+        "go",
+        "golang"
+      ],
+      "groupName": "go version"
     }
   ]
 }
