@@ -14,10 +14,12 @@ Package github implements backend.Backend against the GitHub REST API.
   - [func New\(owner, repo, token string, opts ...Option\) \*Client](<#New>)
   - [func \(c \*Client\) CommitURL\(sha string\) string](<#Client.CommitURL>)
   - [func \(c \*Client\) CompareURL\(from, to string\) string](<#Client.CompareURL>)
+  - [func \(c \*Client\) GitRemoteURL\(\) string](<#Client.GitRemoteURL>)
   - [func \(c \*Client\) Publish\(ctx context.Context, tag string\) error](<#Client.Publish>)
   - [func \(c \*Client\) ResolveAuthor\(ctx context.Context, sha string\) \(backend.AuthorReference, bool, error\)](<#Client.ResolveAuthor>)
   - [func \(c \*Client\) ResolvePR\(ctx context.Context, sha string\) \(commit.PRReference, bool, error\)](<#Client.ResolvePR>)
   - [func \(c \*Client\) UpsertDraft\(ctx context.Context, req backend.UpsertDraftRequest\) error](<#Client.UpsertDraft>)
+  - [func \(c \*Client\) UpsertReleasePR\(ctx context.Context, req backend.UpsertReleasePRRequest\) \(backend.ReleasePR, error\)](<#Client.UpsertReleasePR>)
 - [type Option](<#Option>)
   - [func WithBaseURL\(url string\) Option](<#WithBaseURL>)
 
@@ -52,13 +54,22 @@ func (c *Client) CommitURL(sha string) string
 CommitURL implements backend.Backend. GitHub's web UI is always github.com regardless of API base URL \(only api.github.com is supported — no Enterprise base\-URL override exists for this adapter\).
 
 <a name="Client.CompareURL"></a>
-### func \(\*Client\) [CompareURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L187>)
+### func \(\*Client\) [CompareURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L194>)
 
 ```go
 func (c *Client) CompareURL(from, to string) string
 ```
 
 CompareURL implements backend.Backend.
+
+<a name="Client.GitRemoteURL"></a>
+### func \(\*Client\) [GitRemoteURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L189>)
+
+```go
+func (c *Client) GitRemoteURL() string
+```
+
+GitRemoteURL implements backend.Backend. "x\-access\-token" is GitHub's documented placeholder username for token\-based HTTPS auth — GitHub itself only inspects the password field.
 
 <a name="Client.Publish"></a>
 ### func \(\*Client\) [Publish](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L94>)
@@ -72,7 +83,7 @@ Publish implements backend.Backend. It flips the draft release matching tag to p
 This must be two separate PATCH requests, not one combined payload — confirmed against the live API \(see brpaz/draftsman's own v0.2.0 release\). A draft's stored tag\_name is GitHub's own "untagged\-\<hash\>" placeholder \(see findReleaseByTag\) until a real tag exists; sending draft:false and tag\_name together in one request still creates the tag under the placeholder, silently ignoring the resupplied tag\_name for that transaction. Setting tag\_name first, in its own request while still a draft, then flipping draft:false in a second request, produces the correct tag every time.
 
 <a name="Client.ResolveAuthor"></a>
-### func \(\*Client\) [ResolveAuthor](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L196>)
+### func \(\*Client\) [ResolveAuthor](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L203>)
 
 ```go
 func (c *Client) ResolveAuthor(ctx context.Context, sha string) (backend.AuthorReference, bool, error)
@@ -97,6 +108,15 @@ func (c *Client) UpsertDraft(ctx context.Context, req backend.UpsertDraftRequest
 ```
 
 UpsertDraft implements backend.Backend.
+
+<a name="Client.UpsertReleasePR"></a>
+### func \(\*Client\) [UpsertReleasePR](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L247>)
+
+```go
+func (c *Client) UpsertReleasePR(ctx context.Context, req backend.UpsertReleasePRRequest) (backend.ReleasePR, error)
+```
+
+UpsertReleasePR implements backend.Backend.
 
 <a name="Option"></a>
 ## type [Option](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L33>)

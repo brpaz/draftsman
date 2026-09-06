@@ -14,7 +14,7 @@ Package draft implements the "draft" command: compute entries since the last rel
 
 
 <a name="New"></a>
-## func [New](<https://github.com/brpaz/draftsman/blob/main/internal/commands/draft/draft.go#L25>)
+## func [New](<https://github.com/brpaz/draftsman/blob/main/internal/commands/draft/draft.go#L28>)
 
 ```go
 func New() *cli.Command

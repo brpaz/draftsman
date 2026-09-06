@@ -15,7 +15,7 @@ Package releasepr computes, for release\-strategy: pr, the version\-file bump an
 
 
 <a name="FilePlan"></a>
-## type [FilePlan](<https://github.com/brpaz/draftsman/blob/main/internal/releasepr/releasepr.go#L20-L37>)
+## type [FilePlan](<https://github.com/brpaz/draftsman/blob/main/internal/releasepr/releasepr.go#L20-L40>)
 
 FilePlan is one package's computed release\-strategy: pr changes.
 
@@ -31,17 +31,20 @@ type FilePlan struct {
     VersionFilePath string
     OldVersion      string
     NewVersion      string
+    // VersionFileContent is the version file's full new content, ready to
+    // write as-is — nil when VersionFileNoOp.
+    VersionFileContent []byte
 
     // ChangelogPath is relative to the repository root.
     ChangelogPath string
     // ChangelogEntry is the full CHANGELOG.md content after prepending
-    // this release's entry.
+    // this release's entry, ready to write as-is.
     ChangelogEntry string
 }
 ```
 
 <a name="Compute"></a>
-### func [Compute](<https://github.com/brpaz/draftsman/blob/main/internal/releasepr/releasepr.go#L43>)
+### func [Compute](<https://github.com/brpaz/draftsman/blob/main/internal/releasepr/releasepr.go#L46>)
 
 ```go
 func Compute(repoPath string, cfg *config.Config, plan *engine.Plan, date string) ([]FilePlan, error)

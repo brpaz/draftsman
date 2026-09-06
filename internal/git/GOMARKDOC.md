@@ -12,6 +12,7 @@ Package git reads commit history from a local repository, and \(write.go\) pushe
 
 - [Constants](<#constants>)
 - [func ChangedFiles\(ctx context.Context, repoPath, sha string\) \(\[\]string, error\)](<#ChangedFiles>)
+- [func CurrentBranch\(ctx context.Context, repoPath string\) \(string, error\)](<#CurrentBranch>)
 - [func PushBranch\(ctx context.Context, repoPath, remote, branch, baseRef string, changes \[\]FileChange, message string\) \(string, error\)](<#PushBranch>)
 - [func Tags\(ctx context.Context, repoPath string\) \(\[\]string, error\)](<#Tags>)
 - [type Commit](<#Commit>)
@@ -39,6 +40,15 @@ func ChangedFiles(ctx context.Context, repoPath, sha string) ([]string, error)
 
 ChangedFiles returns the paths changed by sha, relative to the repo root. \-\-root makes this correct for a commit with no parent \(diffed against an empty tree\) as well as any ordinary commit.
 
+<a name="CurrentBranch"></a>
+## func [CurrentBranch](<https://github.com/brpaz/draftsman/blob/main/internal/git/git.go#L100>)
+
+```go
+func CurrentBranch(ctx context.Context, repoPath string) (string, error)
+```
+
+CurrentBranch returns the name of the branch currently checked out in repoPath — used by release\-strategy: pr to determine a release PR's base branch, on the assumption that CI has the default branch checked out when draft/publish run \(the same assumption every other release\-strategy: pr trigger already makes: "run on every push to default"\).
+
 <a name="PushBranch"></a>
 ## func [PushBranch](<https://github.com/brpaz/draftsman/blob/main/internal/git/write.go#L42>)
 
@@ -51,7 +61,7 @@ PushBranch creates a new commit — baseRef's tree with changes applied, authore
 remote is a git remote name \(or URL\) already configured with whatever credentials the push needs \(e.g. a token embedded in an https:// remote URL\) — this function is push\-mechanics only and carries no auth concept of its own, same as every other command in this package shelling out to the local git binary.
 
 <a name="Tags"></a>
-## func [Tags](<https://github.com/brpaz/draftsman/blob/main/internal/git/git.go#L97>)
+## func [Tags](<https://github.com/brpaz/draftsman/blob/main/internal/git/git.go#L114>)
 
 ```go
 func Tags(ctx context.Context, repoPath string) ([]string, error)
