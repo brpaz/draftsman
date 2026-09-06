@@ -69,6 +69,51 @@ func TestPushBranch_RerunForceUpdatesInPlace(t *testing.T) {
 	assert.Equal(t, base, parent, "each run rebases from the current default branch tip rather than extending the branch's own history")
 }
 
+func TestRemoteBranchAuthorEmail_MissingBranchIsNotAnError(t *testing.T) {
+	local, remote := newRepoWithRemote(t)
+
+	email, exists, err := git.RemoteBranchAuthorEmail(context.Background(), local, remote, "release/foo")
+	require.NoError(t, err)
+	assert.False(t, exists)
+	assert.Empty(t, email)
+}
+
+func TestRemoteBranchAuthorEmail_ReturnsBotEmailAfterPushBranch(t *testing.T) {
+	local, remote := newRepoWithRemote(t)
+
+	_, err := git.PushBranch(context.Background(), local, "origin", "release/foo", "HEAD", []git.FileChange{
+		{Path: "VERSION", Content: []byte("1.0.0\n")},
+	}, "chore(release): 1.0.0")
+	require.NoError(t, err)
+
+	email, exists, err := git.RemoteBranchAuthorEmail(context.Background(), local, remote, "release/foo")
+	require.NoError(t, err)
+	require.True(t, exists)
+	assert.Equal(t, git.BotEmail, email)
+}
+
+func TestRemoteBranchAuthorEmail_ReturnsHumanEmailAfterManualPush(t *testing.T) {
+	local, remote := newRepoWithRemote(t)
+
+	_, err := git.PushBranch(context.Background(), local, "origin", "release/foo", "HEAD", []git.FileChange{
+		{Path: "VERSION", Content: []byte("1.0.0\n")},
+	}, "chore(release): 1.0.0")
+	require.NoError(t, err)
+
+	// A human pushes a manual edit directly to the branch.
+	runOK(t, local, "fetch", "origin", "release/foo")
+	runOK(t, local, "checkout", "-q", "FETCH_HEAD")
+	require.NoError(t, os.WriteFile(filepath.Join(local, "VERSION"), []byte("1.0.1\n"), 0o644))
+	commitAs(t, local, "A Human", "human@example.com", "manual bump")
+	runOK(t, local, "push", "origin", "HEAD:release/foo")
+	runOK(t, local, "checkout", "-q", "main")
+
+	email, exists, err := git.RemoteBranchAuthorEmail(context.Background(), local, remote, "release/foo")
+	require.NoError(t, err)
+	require.True(t, exists)
+	assert.Equal(t, "human@example.com", email)
+}
+
 // newRepoWithRemote sets up a local repo with one commit on "main" plus a
 // bare repo added as its "origin" remote, returning both paths.
 func newRepoWithRemote(t *testing.T) (local, remote string) {
@@ -87,6 +132,36 @@ func newRepoWithRemote(t *testing.T) (local, remote string) {
 	runOK(t, local, "remote", "add", "origin", remote)
 
 	return local, remote
+}
+
+// commitAs commits staged-and-unstaged changes as name/email, with explicit
+// GIT_AUTHOR_*/GIT_COMMITTER_* env vars — not just "-c user.name=..." — so
+// this can't be defeated by ambient env vars a parent process (e.g. this
+// very repo's own git-hook runner) may already have exported, which git
+// resolves with higher precedence than -c config overrides.
+func commitAs(t *testing.T, dir, name, email, message string) {
+	t.Helper()
+	cmd := exec.Command("git", "-C", dir, "commit", "-q", "-am", message)
+	cmd.Env = append(filteredEnviron(),
+		"GIT_AUTHOR_NAME="+name, "GIT_AUTHOR_EMAIL="+email,
+		"GIT_COMMITTER_NAME="+name, "GIT_COMMITTER_EMAIL="+email,
+	)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git commit: %s", out)
+}
+
+// filteredEnviron is os.Environ() with any ambient GIT_AUTHOR_*/
+// GIT_COMMITTER_* stripped, so a caller's own explicit overrides are the
+// only ones in effect.
+func filteredEnviron() []string {
+	var env []string
+	for _, kv := range os.Environ() {
+		if strings.HasPrefix(kv, "GIT_AUTHOR_") || strings.HasPrefix(kv, "GIT_COMMITTER_") {
+			continue
+		}
+		env = append(env, kv)
+	}
+	return env
 }
 
 func runOK(t *testing.T, dir string, args ...string) string {

@@ -126,9 +126,10 @@ func runMulti(ctx context.Context, cfg *config.Config, b backend.Backend, plan *
 
 // runPR opens or updates one release PR per package with a pending release
 // (single mode has exactly one implicit package), per release-strategy: pr.
-// Human-edit backoff isn't implemented yet (ticket 04 of
-// .scratch/pr-release-strategy/spec.md) — every run force-updates the
-// branch, same as PushBranch's own "rebase from default each time" shape.
+// A branch whose current HEAD wasn't authored by draftsman's own bot
+// identity is left alone (see backOffForHumanEdit) rather than
+// force-updated, so a human's manual review edit on the branch survives
+// across runs.
 func runPR(ctx context.Context, repoPath string, cfg *config.Config, b backend.Backend, plan *engine.Plan, w io.Writer) error {
 	filePlans, err := releasepr.Compute(repoPath, cfg, plan, time.Now().UTC().Format("2006-01-02"))
 	if err != nil {
@@ -148,6 +149,15 @@ func runPR(ctx context.Context, repoPath string, cfg *config.Config, b backend.B
 	for _, fp := range filePlans {
 		branch := releaseBranchName(fp.Package)
 		title := releasePRTitle(fp.Package, fp.NewVersion)
+
+		skip, err := backOffForHumanEdit(ctx, repoPath, remote, branch)
+		if err != nil {
+			return fmt.Errorf("%s: checking branch %q for manual edits: %w", name, branch, err)
+		}
+		if skip {
+			fmt.Fprintf(w, "skipping %s: release branch has manual edits, leaving it alone\n", releasePRLabel(fp.Package))
+			continue
+		}
 
 		var changes []git.FileChange
 		if !fp.VersionFileNoOp {
@@ -170,6 +180,20 @@ func runPR(ctx context.Context, repoPath string, cfg *config.Config, b backend.B
 	}
 
 	return nil
+}
+
+// backOffForHumanEdit reports whether branch already exists on remote with
+// a HEAD commit not authored by draftsman's own bot identity — a human has
+// pushed a manual edit to the release PR since the last run, and it should
+// be left alone rather than force-updated (ticket 04 of
+// .scratch/pr-release-strategy/spec.md). A branch that doesn't exist yet,
+// or whose HEAD is still bot-authored, is always safe to update.
+func backOffForHumanEdit(ctx context.Context, repoPath, remote, branch string) (bool, error) {
+	authorEmail, exists, err := git.RemoteBranchAuthorEmail(ctx, repoPath, remote, branch)
+	if err != nil {
+		return false, err
+	}
+	return exists && authorEmail != git.BotEmail, nil
 }
 
 // releaseBranchName is stable and deterministic per package (not

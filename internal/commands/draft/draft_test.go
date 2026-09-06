@@ -201,6 +201,31 @@ func TestRunPR_RerunUpdatesSameBranchAndPR(t *testing.T) {
 	assert.Equal(t, "1.2.0\n", showRemoteFile(t, remote, "draftsman-release", "VERSION"), "the branch must reflect the latest run, not the first")
 }
 
+func TestRunPR_HumanEditedBranchIsLeftAlone(t *testing.T) {
+	local, remote := newRepoWithRemote(t)
+	fb := &fakeBackend{gitRemoteURL: remote}
+	var out bytes.Buffer
+
+	// First run creates the branch, bot-authored.
+	require.NoError(t, runPR(context.Background(), local, config.Default(), fb, singlePlanWithPending(), &out))
+	require.Len(t, fb.releasePRs, 1)
+
+	// A human pushes a manual edit directly to the release branch.
+	runGitCmd(t, local, "fetch", remote, "draftsman-release")
+	runGitCmd(t, local, "checkout", "-q", "FETCH_HEAD")
+	require.NoError(t, os.WriteFile(filepath.Join(local, "VERSION"), []byte("9.9.9\n"), 0o644))
+	commitAsHuman(t, local, "manual bump")
+	runGitCmd(t, local, "push", remote, "HEAD:draftsman-release")
+	runGitCmd(t, local, "checkout", "-q", "main")
+
+	out.Reset()
+	require.NoError(t, runPR(context.Background(), local, config.Default(), fb, singlePlanWithPending(), &out))
+
+	assert.Len(t, fb.releasePRs, 1, "a human-edited branch must not be force-updated or re-upserted")
+	assert.Contains(t, out.String(), "manual edits")
+	assert.Equal(t, "9.9.9\n", showRemoteFile(t, remote, "draftsman-release", "VERSION"), "the human's edit must survive")
+}
+
 func TestRunPR_NoPendingReleaseIsNotAnError(t *testing.T) {
 	local, remote := newRepoWithRemote(t)
 	fb := &fakeBackend{gitRemoteURL: remote}
@@ -231,6 +256,28 @@ func newRepoWithRemote(t *testing.T) (local, remote string) {
 	runGitCmd(t, remote, "init", "-q", "--bare")
 
 	return local, remote
+}
+
+// commitAsHuman commits with explicit GIT_AUTHOR_*/GIT_COMMITTER_* env
+// vars (not "-c user.name=..."), so it can't be defeated by ambient env
+// vars a parent process (e.g. this repo's own git-hook runner) may already
+// have exported — those take precedence over -c config overrides.
+func commitAsHuman(t *testing.T, dir, message string) {
+	t.Helper()
+	cmd := exec.Command("git", "-C", dir, "commit", "-q", "-am", message)
+	var env []string
+	for _, kv := range os.Environ() {
+		if strings.HasPrefix(kv, "GIT_AUTHOR_") || strings.HasPrefix(kv, "GIT_COMMITTER_") {
+			continue
+		}
+		env = append(env, kv)
+	}
+	cmd.Env = append(env,
+		"GIT_AUTHOR_NAME=A Human", "GIT_AUTHOR_EMAIL=human@example.com",
+		"GIT_COMMITTER_NAME=A Human", "GIT_COMMITTER_EMAIL=human@example.com",
+	)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git commit: %s", out)
 }
 
 func runGitCmd(t *testing.T, dir string, args ...string) string {

@@ -97,6 +97,31 @@ func PushBranch(ctx context.Context, repoPath, remote, branch, baseRef string, c
 	return newCommit, nil
 }
 
+// RemoteBranchAuthorEmail returns the author email of remote's branch's
+// current HEAD commit. exists is false when the branch doesn't exist yet
+// on remote — callers treat that as "safe to create", never as an error.
+// Used before PushBranch force-updates an existing release branch: an
+// author other than BotEmail means a human has pushed a manual edit since
+// the last run, and the caller should back off rather than overwrite it.
+func RemoteBranchAuthorEmail(ctx context.Context, repoPath, remote, branch string) (email string, exists bool, err error) {
+	lsRemote, err := runGit(ctx, repoPath, nil, "ls-remote", remote, "refs/heads/"+branch)
+	if err != nil {
+		return "", false, fmt.Errorf("checking whether %s exists on %s: %w", branch, remote, err)
+	}
+	if strings.TrimSpace(lsRemote) == "" {
+		return "", false, nil
+	}
+
+	if _, err := runGit(ctx, repoPath, nil, "fetch", "--depth=1", remote, branch); err != nil {
+		return "", false, fmt.Errorf("fetching %s from %s: %w", branch, remote, err)
+	}
+	out, err := runGit(ctx, repoPath, nil, "log", "-1", "--format=%ae", "FETCH_HEAD")
+	if err != nil {
+		return "", false, fmt.Errorf("reading %s's HEAD author: %w", branch, err)
+	}
+	return strings.TrimSpace(out), true, nil
+}
+
 func revParse(ctx context.Context, repoPath, ref string) (string, error) {
 	out, err := runGit(ctx, repoPath, nil, "rev-parse", ref)
 	if err != nil {

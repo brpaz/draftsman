@@ -14,6 +14,7 @@ Package git reads commit history from a local repository, and \(write.go\) pushe
 - [func ChangedFiles\(ctx context.Context, repoPath, sha string\) \(\[\]string, error\)](<#ChangedFiles>)
 - [func CurrentBranch\(ctx context.Context, repoPath string\) \(string, error\)](<#CurrentBranch>)
 - [func PushBranch\(ctx context.Context, repoPath, remote, branch, baseRef string, changes \[\]FileChange, message string\) \(string, error\)](<#PushBranch>)
+- [func RemoteBranchAuthorEmail\(ctx context.Context, repoPath, remote, branch string\) \(email string, exists bool, err error\)](<#RemoteBranchAuthorEmail>)
 - [func Tags\(ctx context.Context, repoPath string\) \(\[\]string, error\)](<#Tags>)
 - [type Commit](<#Commit>)
   - [func Log\(ctx context.Context, repoPath, since string\) \(\[\]Commit, error\)](<#Log>)
@@ -59,6 +60,15 @@ func PushBranch(ctx context.Context, repoPath, remote, branch, baseRef string, c
 PushBranch creates a new commit — baseRef's tree with changes applied, authored as BotName/BotEmail — and force\-pushes it directly to remote as branch, without touching repoPath's working tree or current checkout. Built entirely via git plumbing \(hash\-object, a scratch index, write\-tree, commit\-tree\): every run starts fresh from baseRef rather than extending the branch's previous history, so the push is always non\-fast\-forward and must be forced — the same "rebase from default each time" shape as a release\-please release PR. Returns the new commit SHA.
 
 remote is a git remote name \(or URL\) already configured with whatever credentials the push needs \(e.g. a token embedded in an https:// remote URL\) — this function is push\-mechanics only and carries no auth concept of its own, same as every other command in this package shelling out to the local git binary.
+
+<a name="RemoteBranchAuthorEmail"></a>
+## func [RemoteBranchAuthorEmail](<https://github.com/brpaz/draftsman/blob/main/internal/git/write.go#L106>)
+
+```go
+func RemoteBranchAuthorEmail(ctx context.Context, repoPath, remote, branch string) (email string, exists bool, err error)
+```
+
+RemoteBranchAuthorEmail returns the author email of remote's branch's current HEAD commit. exists is false when the branch doesn't exist yet on remote — callers treat that as "safe to create", never as an error. Used before PushBranch force\-updates an existing release branch: an author other than BotEmail means a human has pushed a manual edit since the last run, and the caller should back off rather than overwrite it.
 
 <a name="Tags"></a>
 ## func [Tags](<https://github.com/brpaz/draftsman/blob/main/internal/git/git.go#L114>)
