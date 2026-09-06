@@ -53,6 +53,41 @@ categories:
 	assert.Equal(t, config.Default().Template, cfg.Template)
 }
 
+func TestDefault_ReleaseStrategyIsDraft(t *testing.T) {
+	assert.Equal(t, config.StrategyDraft, config.Default().ReleaseStrategy)
+}
+
+func TestLoad_ReleaseStrategyOverridesDefault(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".draftsman.yml")
+	writeFile(t, path, "release-strategy: pr\n")
+
+	cfg, err := config.Load(path, true)
+	require.NoError(t, err)
+
+	assert.Equal(t, config.StrategyPR, cfg.ReleaseStrategy)
+	// Orthogonal to mode: untouched field keeps its own default.
+	assert.Equal(t, config.ModeSingle, cfg.Mode)
+}
+
+func TestLoad_PackageVersionFileOverride(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".draftsman.yml")
+	writeFile(t, path, `
+mode: multi
+packages:
+  - path: api
+    name: api
+    version-file: version.txt
+`)
+
+	cfg, err := config.Load(path, true)
+	require.NoError(t, err)
+
+	require.Len(t, cfg.Packages, 1)
+	assert.Equal(t, "version.txt", cfg.Packages[0].VersionFile)
+}
+
 func TestLoad_FooterFalseOverridesDefault(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".draftsman.yml")

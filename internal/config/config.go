@@ -13,6 +13,14 @@ const (
 	ModeSingle = "single"
 	ModeMulti  = "multi"
 
+	// StrategyDraft is the default release-strategy: a continuously-updated
+	// Draft Release object on the backend, never touching repo files.
+	StrategyDraft = "draft"
+	// StrategyPR bumps a package's version file and CHANGELOG.md via a
+	// reviewable release PR instead of a Draft Release — see
+	// .scratch/pr-release-strategy/spec.md.
+	StrategyPR = "pr"
+
 	defaultSkipChangelogTrailer = "Skip-Changelog"
 	defaultTagFormat            = "v{{version}}"
 
@@ -54,11 +62,24 @@ type Category struct {
 type Package struct {
 	Path string `yaml:"path"`
 	Name string `yaml:"name"`
+	// VersionFile overrides release-strategy: pr's auto-detected version
+	// file for this Package, as a path relative to Path. Format (JSON/TOML/
+	// plain text) is inferred from the extension (.json/.toml, anything
+	// else treated like the plain-text VERSION fallback) — used when
+	// auto-detection would pick the wrong file among several manifests in
+	// the same directory, or the ecosystem isn't one of the built-in
+	// detected formats.
+	VersionFile string `yaml:"version-file"`
 }
 
 // Config is the fully-defaulted result of loading .draftsman.yml.
 type Config struct {
-	Mode                 string     `yaml:"mode"`
+	Mode string `yaml:"mode"`
+	// ReleaseStrategy chooses between the continuous Draft Release model
+	// (StrategyDraft, default) and the version-bump release PR model
+	// (StrategyPR) — orthogonal to Mode: any combination of the two is
+	// valid.
+	ReleaseStrategy      string     `yaml:"release-strategy"`
 	Categories           []Category `yaml:"categories"`
 	Packages             []Package  `yaml:"packages"`
 	SkipChangelogTrailer string     `yaml:"skip-changelog-trailer"`
@@ -88,7 +109,8 @@ func (c *Config) FooterEnabled() bool {
 func Default() *Config {
 	footer := true
 	return &Config{
-		Mode: ModeSingle,
+		Mode:            ModeSingle,
+		ReleaseStrategy: StrategyDraft,
 		Categories: []Category{
 			{Type: "feat", Section: "Features"},
 			{Type: "fix", Section: "Bug Fixes"},
@@ -123,6 +145,9 @@ func Load(path string, required bool) (*Config, error) {
 
 	if overrides.Mode != "" {
 		cfg.Mode = overrides.Mode
+	}
+	if overrides.ReleaseStrategy != "" {
+		cfg.ReleaseStrategy = overrides.ReleaseStrategy
 	}
 	if overrides.SkipChangelogTrailer != "" {
 		cfg.SkipChangelogTrailer = overrides.SkipChangelogTrailer
