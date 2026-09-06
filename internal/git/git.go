@@ -1,4 +1,5 @@
-// Package git reads commit history from a local repository.
+// Package git reads commit history from a local repository, and (write.go)
+// pushes release-strategy: pr branches to a remote.
 package git
 
 import (
