@@ -150,6 +150,27 @@ func TestBump_Plain_CreatesNewFile(t *testing.T) {
 	assert.Equal(t, "1.0.0\n", string(newContent))
 }
 
+func TestRead_JSON(t *testing.T) {
+	content := []byte(`{"name": "foo", "version": "1.2.3"}`)
+	v, err := versionfile.Read(versionfile.Target{Kind: versionfile.KindJSON}, content)
+	require.NoError(t, err)
+	assert.Equal(t, "1.2.3", v)
+}
+
+func TestRead_TOML_ScopedToTable(t *testing.T) {
+	content := []byte("[package]\nversion = \"1.2.3\"\n\n[dependencies]\nversion = \"9.9.9\"\n")
+	target := versionfile.Target{Kind: versionfile.KindTOML, Tables: []string{"package"}}
+	v, err := versionfile.Read(target, content)
+	require.NoError(t, err)
+	assert.Equal(t, "1.2.3", v)
+}
+
+func TestRead_Plain(t *testing.T) {
+	v, err := versionfile.Read(versionfile.Target{Kind: versionfile.KindPlain}, []byte("1.0.0\n"))
+	require.NoError(t, err)
+	assert.Equal(t, "1.0.0", v)
+}
+
 func TestBump_Plain_ReplacesExisting(t *testing.T) {
 	newContent, old, err := versionfile.Bump(versionfile.Target{Kind: versionfile.KindPlain}, []byte("0.9.0\n"), "1.0.0")
 	require.NoError(t, err)

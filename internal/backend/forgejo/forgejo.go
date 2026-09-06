@@ -123,6 +123,12 @@ func (c *Client) UpsertReleasePR(context.Context, backend.UpsertReleasePRRequest
 	return backend.ReleasePR{}, fmt.Errorf("forgejo: UpsertReleasePR not yet implemented")
 }
 
+// CreateRelease implements backend.Backend. Not yet implemented — see
+// ticket 08 of .scratch/pr-release-strategy/spec.md.
+func (c *Client) CreateRelease(context.Context, string, string, string) error {
+	return fmt.Errorf("forgejo: CreateRelease not yet implemented")
+}
+
 // ResolveAuthor implements backend.Backend. Unlike GitHub's "get a commit"
 // endpoint, no Forgejo endpoint returning a commit's linked account has
 // been verified against a live instance — per ADR-0001, this always

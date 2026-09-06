@@ -238,6 +238,44 @@ func (c *Client) ResolveAuthor(ctx context.Context, sha string) (backend.AuthorR
 	return backend.AuthorReference{Login: payload.Author.Login, ProfileURL: payload.Author.HTMLURL}, true, nil
 }
 
+// CreateRelease implements backend.Backend.
+func (c *Client) CreateRelease(ctx context.Context, tag, releaseName, body string) error {
+	fields := map[string]any{
+		"tag_name": tag,
+		"body":     body,
+		"draft":    false,
+	}
+	if releaseName != "" {
+		fields["name"] = releaseName
+	} else {
+		fields["name"] = tag
+	}
+
+	payload, err := json.Marshal(fields)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/repos/%s/%s/releases", c.baseURL, c.owner, c.repo)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	c.setHeaders(httpReq)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusCreated {
+		return unexpectedStatus(resp)
+	}
+	return nil
+}
+
 type pullRequest struct {
 	Number  int    `json:"number"`
 	HTMLURL string `json:"html_url"`

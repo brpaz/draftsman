@@ -221,3 +221,9 @@ func TestUpsertReleasePR_NotYetImplemented(t *testing.T) {
 	_, err := client.UpsertReleasePR(context.Background(), backend.UpsertReleasePRRequest{})
 	require.Error(t, err)
 }
+
+func TestCreateRelease_NotYetImplemented(t *testing.T) {
+	client := forgejo.New("https://codeberg.org/", "brpaz", "draftsman", "test-token")
+	err := client.CreateRelease(context.Background(), "v1.0.0", "", "")
+	require.Error(t, err)
+}

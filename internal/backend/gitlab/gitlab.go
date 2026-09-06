@@ -162,6 +162,13 @@ func (c *Client) UpsertReleasePR(context.Context, backend.UpsertReleasePRRequest
 	return backend.ReleasePR{}, fmt.Errorf("gitlab: UpsertReleasePR not yet implemented")
 }
 
+// CreateRelease implements backend.Backend. Not yet implemented — no
+// ticket covers a GitLab adapter for release-strategy: pr (see
+// UpsertReleasePR's own doc comment).
+func (c *Client) CreateRelease(context.Context, string, string, string) error {
+	return fmt.Errorf("gitlab: CreateRelease not yet implemented")
+}
+
 // ResolveAuthor implements backend.Backend. GitLab's "get a single commit"
 // endpoint returns only the raw git author_name/author_email, not a linked
 // account — per ADR-0001, this always reports "not supported" rather than

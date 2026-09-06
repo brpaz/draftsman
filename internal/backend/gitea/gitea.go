@@ -120,6 +120,12 @@ func (c *Client) UpsertReleasePR(context.Context, backend.UpsertReleasePRRequest
 	return backend.ReleasePR{}, fmt.Errorf("gitea: UpsertReleasePR not yet implemented")
 }
 
+// CreateRelease implements backend.Backend. Not yet implemented — see
+// ticket 07 of .scratch/pr-release-strategy/spec.md.
+func (c *Client) CreateRelease(context.Context, string, string, string) error {
+	return fmt.Errorf("gitea: CreateRelease not yet implemented")
+}
+
 // ResolveAuthor implements backend.Backend. Unlike GitHub's "get a commit"
 // endpoint, no Gitea endpoint returning a commit's linked account has been
 // verified against a live instance — per ADR-0001, this always reports

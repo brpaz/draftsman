@@ -49,6 +49,8 @@ func (f *fakeBackend) UpsertReleasePR(context.Context, backend.UpsertReleasePRRe
 
 func (f *fakeBackend) GitRemoteURL() string { return "" }
 
+func (f *fakeBackend) CreateRelease(context.Context, string, string, string) error { return nil }
+
 // runGit runs a git subcommand against dir, failing the test on error.
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()

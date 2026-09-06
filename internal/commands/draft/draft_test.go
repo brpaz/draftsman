@@ -51,6 +51,8 @@ func (f *fakeBackend) UpsertReleasePR(_ context.Context, req backend.UpsertRelea
 
 func (f *fakeBackend) GitRemoteURL() string { return f.gitRemoteURL }
 
+func (f *fakeBackend) CreateRelease(context.Context, string, string, string) error { return nil }
+
 func multiPlan() *engine.Plan {
 	return &engine.Plan{
 		Packages: []engine.PackagePlan{

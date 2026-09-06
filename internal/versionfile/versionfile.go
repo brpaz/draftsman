@@ -129,50 +129,59 @@ var tomlVersionPattern = regexp.MustCompile(`(?m)^(\s*version\s*=\s*")([^"]*)(")
 // nil/empty only valid for KindPlain — JSON/TOML targets are only ever
 // detected because the file already exists.
 func Bump(target Target, content []byte, newVersion string) (newContent []byte, oldVersion string, err error) {
-	switch target.Kind {
-	case KindPlain:
+	if target.Kind == KindPlain {
 		return []byte(newVersion + "\n"), strings.TrimSpace(string(content)), nil
+	}
+
+	start, end, old, err := locateVersion(target, content)
+	if err != nil {
+		return nil, "", err
+	}
+
+	var buf bytes.Buffer
+	buf.Write(content[:start])
+	buf.WriteString(newVersion)
+	buf.Write(content[end:])
+	return buf.Bytes(), old, nil
+}
+
+// Read extracts the current version string from content according to
+// target.Kind, without modifying it — the read-back counterpart to Bump,
+// used at publish time once a release-strategy: pr branch has been merged.
+func Read(target Target, content []byte) (string, error) {
+	if target.Kind == KindPlain {
+		return strings.TrimSpace(string(content)), nil
+	}
+
+	_, _, version, err := locateVersion(target, content)
+	return version, err
+}
+
+// locateVersion finds the version value inside content for target's Kind
+// (KindJSON or KindTOML — KindPlain has no such value to locate, callers
+// handle it separately), returning its byte range and current value.
+func locateVersion(target Target, content []byte) (start, end int, version string, err error) {
+	switch target.Kind {
 	case KindJSON:
-		return bumpJSON(content, newVersion)
-	case KindTOML:
-		return bumpTOML(content, target.Tables, newVersion)
-	default:
-		return nil, "", fmt.Errorf("versionfile: unknown kind %q", target.Kind)
-	}
-}
-
-func bumpJSON(content []byte, newVersion string) ([]byte, string, error) {
-	loc := jsonVersionPattern.FindSubmatchIndex(content)
-	if loc == nil {
-		return nil, "", fmt.Errorf("versionfile: no \"version\" key found")
-	}
-	old := string(content[loc[4]:loc[5]])
-
-	var buf bytes.Buffer
-	buf.Write(content[:loc[4]])
-	buf.WriteString(newVersion)
-	buf.Write(content[loc[5]:])
-	return buf.Bytes(), old, nil
-}
-
-func bumpTOML(content []byte, tables []string, newVersion string) ([]byte, string, error) {
-	region, offset, scoped := findTable(content, tables)
-
-	loc := tomlVersionPattern.FindSubmatchIndex(region)
-	if loc == nil {
-		hint := ""
-		if scoped {
-			hint = fmt.Sprintf(" in table(s) %v", tables)
+		loc := jsonVersionPattern.FindSubmatchIndex(content)
+		if loc == nil {
+			return 0, 0, "", fmt.Errorf("versionfile: no \"version\" key found")
 		}
-		return nil, "", fmt.Errorf("versionfile: no version key found%s", hint)
+		return loc[4], loc[5], string(content[loc[4]:loc[5]]), nil
+	case KindTOML:
+		region, offset, scoped := findTable(content, target.Tables)
+		loc := tomlVersionPattern.FindSubmatchIndex(region)
+		if loc == nil {
+			hint := ""
+			if scoped {
+				hint = fmt.Sprintf(" in table(s) %v", target.Tables)
+			}
+			return 0, 0, "", fmt.Errorf("versionfile: no version key found%s", hint)
+		}
+		return offset + loc[4], offset + loc[5], string(region[loc[4]:loc[5]]), nil
+	default:
+		return 0, 0, "", fmt.Errorf("versionfile: unknown kind %q", target.Kind)
 	}
-	old := string(region[loc[4]:loc[5]])
-
-	var buf bytes.Buffer
-	buf.Write(content[:offset+loc[4]])
-	buf.WriteString(newVersion)
-	buf.Write(content[offset+loc[5]:])
-	return buf.Bytes(), old, nil
 }
 
 // findTable returns the byte region of content scoped to the first

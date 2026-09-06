@@ -311,6 +311,34 @@ func TestCompareURL_IsGitHubWebLink(t *testing.T) {
 	require.Equal(t, "https://github.com/brpaz/draftsman/compare/v1.0.0...v1.1.0", client.CompareURL("v1.0.0", "v1.1.0"))
 }
 
+func TestCreateRelease_PostsAnAlreadyPublishedRelease(t *testing.T) {
+	var createBody map[string]any
+	created := false
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/repos/brpaz/draftsman/releases":
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&createBody))
+			created = true
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id": 1, "tag_name": "v1.1.0", "draft": false}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := github.New("brpaz", "draftsman", "test-token", github.WithBaseURL(server.URL))
+	err := client.CreateRelease(context.Background(), "v1.1.0", "", "## Features\n- add thing\n")
+	require.NoError(t, err)
+
+	require.True(t, created)
+	assert.Equal(t, "v1.1.0", createBody["tag_name"])
+	assert.Equal(t, "v1.1.0", createBody["name"], "an empty releaseName falls back to the tag")
+	assert.Equal(t, false, createBody["draft"])
+	assert.Equal(t, "## Features\n- add thing\n", createBody["body"])
+}
+
 func TestGitRemoteURL_EmbedsTokenAsXAccessToken(t *testing.T) {
 	client := github.New("brpaz", "draftsman", "test-token", github.WithBaseURL("https://example.invalid"))
 	require.Equal(t, "https://x-access-token:test-token@github.com/brpaz/draftsman.git", client.GitRemoteURL())

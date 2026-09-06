@@ -81,6 +81,13 @@ type Backend interface {
 	// idempotent, the release-strategy: pr counterpart to UpsertDraft.
 	UpsertReleasePR(ctx context.Context, req UpsertReleasePRRequest) (ReleasePR, error)
 
+	// CreateRelease creates an already-published release for tag directly
+	// — no pre-existing Draft Release to promote, unlike Publish. Used by
+	// release-strategy: pr's publish path, where the version bump and
+	// changelog entry were already reviewed and merged via a release PR
+	// (UpsertReleasePR) rather than upserted as a Draft Release.
+	CreateRelease(ctx context.Context, tag, releaseName, body string) error
+
 	// GitRemoteURL returns a git remote URL for this repo with credentials
 	// embedded, suitable for a local `git push` (see internal/git.PushBranch)
 	// — pure string formatting from the repo coordinates and token the
