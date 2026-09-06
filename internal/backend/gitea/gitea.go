@@ -114,16 +114,178 @@ func (c *Client) GitRemoteURL() string {
 	return backend.FormatGitRemoteURL(c.baseURL, "oauth2", c.token, c.owner+"/"+c.repo)
 }
 
-// UpsertReleasePR implements backend.Backend. Not yet implemented — see
-// ticket 07 of .scratch/pr-release-strategy/spec.md.
-func (c *Client) UpsertReleasePR(context.Context, backend.UpsertReleasePRRequest) (backend.ReleasePR, error) {
-	return backend.ReleasePR{}, fmt.Errorf("gitea: UpsertReleasePR not yet implemented")
+type pullRequest struct {
+	Index   int    `json:"number"`
+	HTMLURL string `json:"html_url"`
+	Head    struct {
+		Ref string `json:"ref"`
+	} `json:"head"`
 }
 
-// CreateRelease implements backend.Backend. Not yet implemented — see
-// ticket 07 of .scratch/pr-release-strategy/spec.md.
-func (c *Client) CreateRelease(context.Context, string, string, string) error {
-	return fmt.Errorf("gitea: CreateRelease not yet implemented")
+// UpsertReleasePR implements backend.Backend.
+func (c *Client) UpsertReleasePR(ctx context.Context, req backend.UpsertReleasePRRequest) (backend.ReleasePR, error) {
+	existing, err := c.findOpenPR(ctx, req.Branch)
+	if err != nil {
+		return backend.ReleasePR{}, fmt.Errorf("finding existing release PR for branch %q: %w", req.Branch, err)
+	}
+	if existing == nil {
+		return c.createPR(ctx, req)
+	}
+	return c.updatePR(ctx, existing.Index, req)
+}
+
+// findOpenPR lists open PRs and filters client-side by head branch — Gitea's
+// "list a repo's pull requests" endpoint has no server-side head filter,
+// unlike GitHub's.
+func (c *Client) findOpenPR(ctx context.Context, branch string) (*pullRequest, error) {
+	for page := 1; page <= maxListPages; page++ {
+		pulls, err := c.listOpenPRsPage(ctx, page)
+		if err != nil {
+			return nil, err
+		}
+		if len(pulls) == 0 {
+			return nil, nil
+		}
+		for _, pr := range pulls {
+			if pr.Head.Ref == branch {
+				return &pr, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("exceeded %d pages scanning open pull requests for branch %q", maxListPages, branch)
+}
+
+func (c *Client) listOpenPRsPage(ctx context.Context, page int) ([]pullRequest, error) {
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/pulls?state=open&limit=100&page=%d", c.baseURL, c.owner, c.repo, page)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	c.setHeaders(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, unexpectedStatus(resp)
+	}
+
+	var pulls []pullRequest
+	if err := json.NewDecoder(resp.Body).Decode(&pulls); err != nil {
+		return nil, fmt.Errorf("decoding pulls: %w", err)
+	}
+	return pulls, nil
+}
+
+func (c *Client) createPR(ctx context.Context, req backend.UpsertReleasePRRequest) (backend.ReleasePR, error) {
+	payload, err := json.Marshal(map[string]any{
+		"title": req.Title,
+		"body":  req.Body,
+		"head":  req.Branch,
+		"base":  req.Base,
+	})
+	if err != nil {
+		return backend.ReleasePR{}, err
+	}
+
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/pulls", c.baseURL, c.owner, c.repo)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+	if err != nil {
+		return backend.ReleasePR{}, err
+	}
+	c.setHeaders(httpReq)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return backend.ReleasePR{}, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusCreated {
+		return backend.ReleasePR{}, unexpectedStatus(resp)
+	}
+
+	var pr pullRequest
+	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
+		return backend.ReleasePR{}, fmt.Errorf("decoding created PR: %w", err)
+	}
+	return backend.ReleasePR{Number: pr.Index, URL: pr.HTMLURL}, nil
+}
+
+func (c *Client) updatePR(ctx context.Context, index int, req backend.UpsertReleasePRRequest) (backend.ReleasePR, error) {
+	payload, err := json.Marshal(map[string]any{
+		"title": req.Title,
+		"body":  req.Body,
+	})
+	if err != nil {
+		return backend.ReleasePR{}, err
+	}
+
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/pulls/%d", c.baseURL, c.owner, c.repo, index)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPatch, url, bytes.NewReader(payload))
+	if err != nil {
+		return backend.ReleasePR{}, err
+	}
+	c.setHeaders(httpReq)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return backend.ReleasePR{}, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return backend.ReleasePR{}, unexpectedStatus(resp)
+	}
+
+	var pr pullRequest
+	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
+		return backend.ReleasePR{}, fmt.Errorf("decoding updated PR: %w", err)
+	}
+	return backend.ReleasePR{Number: pr.Index, URL: pr.HTMLURL}, nil
+}
+
+// CreateRelease implements backend.Backend.
+func (c *Client) CreateRelease(ctx context.Context, tag, releaseNameArg, body string) error {
+	name := releaseNameArg
+	if name == "" {
+		name = tag
+	}
+
+	payload, err := json.Marshal(map[string]any{
+		"tag_name": tag,
+		"name":     name,
+		"body":     body,
+		"draft":    false,
+	})
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/releases", c.baseURL, c.owner, c.repo)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	c.setHeaders(httpReq)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusCreated {
+		return unexpectedStatus(resp)
+	}
+	return nil
 }
 
 // ResolveAuthor implements backend.Backend. Unlike GitHub's "get a commit"
