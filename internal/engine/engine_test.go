@@ -27,6 +27,7 @@ type fakeBackend struct {
 func (f *fakeBackend) UpsertDraft(context.Context, backend.UpsertDraftRequest) error { return nil }
 func (f *fakeBackend) Publish(context.Context, string) error                         { return nil }
 func (f *fakeBackend) CommitURL(sha string) string                                   { return "https://example.com/commit/" + sha }
+
 func (f *fakeBackend) CompareURL(from, to string) string {
 	return "https://example.com/compare/" + from + "..." + to
 }

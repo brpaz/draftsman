@@ -27,11 +27,19 @@ Package config loads and defaults a repo's .draftsman.yml.
 const (
     ModeSingle = "single"
     ModeMulti  = "multi"
+
+    // StrategyDraft is the default release-strategy: a continuously-updated
+    // Draft Release object on the backend, never touching repo files.
+    StrategyDraft = "draft"
+    // StrategyPR bumps a package's version file and CHANGELOG.md via a
+    // reviewable release PR instead of a Draft Release — see
+    // .scratch/pr-release-strategy/spec.md.
+    StrategyPR = "pr"
 )
 ```
 
 <a name="Category"></a>
-## type [Category](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L46-L50>)
+## type [Category](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L54-L58>)
 
 Category maps a Conventional Commit type — optionally narrowed to a specific scope — to a changelog section name. A commit is matched against the configured Categories in order, first match wins; Scope empty matches any scope for that Type. This lets a scope\-specific rule \(e.g. type "fix", scope "security"\) take a commit before a broader type\-only rule for the same Type, as long as it's listed first. Order in the config also determines section display order.
 
@@ -44,13 +52,18 @@ type Category struct {
 ```
 
 <a name="Config"></a>
-## type [Config](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L60-L76>)
+## type [Config](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L76-L97>)
 
 Config is the fully\-defaulted result of loading .draftsman.yml.
 
 ```go
 type Config struct {
-    Mode                 string     `yaml:"mode"`
+    Mode string `yaml:"mode"`
+    // ReleaseStrategy chooses between the continuous Draft Release model
+    // (StrategyDraft, default) and the version-bump release PR model
+    // (StrategyPR) — orthogonal to Mode: any combination of the two is
+    // valid.
+    ReleaseStrategy      string     `yaml:"release-strategy"`
     Categories           []Category `yaml:"categories"`
     Packages             []Package  `yaml:"packages"`
     SkipChangelogTrailer string     `yaml:"skip-changelog-trailer"`
@@ -69,7 +82,7 @@ type Config struct {
 ```
 
 <a name="Default"></a>
-### func [Default](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L88>)
+### func [Default](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L109>)
 
 ```go
 func Default() *Config
@@ -78,7 +91,7 @@ func Default() *Config
 Default returns the built\-in configuration used when no field is overridden — this is also what a repo with no .draftsman.yml gets.
 
 <a name="Load"></a>
-### func [Load](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L108>)
+### func [Load](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L130>)
 
 ```go
 func Load(path string, required bool) (*Config, error)
@@ -87,7 +100,7 @@ func Load(path string, required bool) (*Config, error)
 Load reads path and applies any fields it sets on top of Default\(\). A missing file is only an error when required is true — callers should pass required = true exactly when the path was explicitly requested \(e.g. an explicit \-\-config flag\), so an absent default path silently falls back to defaults while an absent explicit path is a real error.
 
 <a name="Config.FooterEnabled"></a>
-### func \(\*Config\) [FooterEnabled](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L82>)
+### func \(\*Config\) [FooterEnabled](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L103>)
 
 ```go
 func (c *Config) FooterEnabled() bool
@@ -96,7 +109,7 @@ func (c *Config) FooterEnabled() bool
 FooterEnabled reports whether c.Footer's attribution footer should be appended. A nil Footer \(any Config not built through Default/Load, e.g. a test\-constructed literal\) defaults to true, same as Default's own value — callers never need to nil\-check Footer themselves.
 
 <a name="Package"></a>
-## type [Package](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L54-L57>)
+## type [Package](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L62-L73>)
 
 Package maps a path prefix to a monorepo package name. A commit is attributed to every Package whose Path prefixes one of its changed files.
 
@@ -104,6 +117,14 @@ Package maps a path prefix to a monorepo package name. A commit is attributed to
 type Package struct {
     Path string `yaml:"path"`
     Name string `yaml:"name"`
+    // VersionFile overrides release-strategy: pr's auto-detected version
+    // file for this Package, as a path relative to Path. Format (JSON/TOML/
+    // plain text) is inferred from the extension (.json/.toml, anything
+    // else treated like the plain-text VERSION fallback) — used when
+    // auto-detection would pick the wrong file among several manifests in
+    // the same directory, or the ecosystem isn't one of the built-in
+    // detected formats.
+    VersionFile string `yaml:"version-file"`
 }
 ```
 
