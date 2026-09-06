@@ -19,7 +19,7 @@ Package backend defines the interface every git hosting adapter \(GitHub, GitLab
 
 
 <a name="FormatGitRemoteURL"></a>
-## func [FormatGitRemoteURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/backend.go#L98>)
+## func [FormatGitRemoteURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/backend.go#L105>)
 
 ```go
 func FormatGitRemoteURL(webBaseURL, username, token, path string) string
@@ -40,7 +40,7 @@ type AuthorReference struct {
 ```
 
 <a name="Backend"></a>
-## type [Backend](<https://github.com/brpaz/draftsman/blob/main/internal/backend/backend.go#L47-L90>)
+## type [Backend](<https://github.com/brpaz/draftsman/blob/main/internal/backend/backend.go#L47-L97>)
 
 Backend is implemented identically by every git hosting adapter.
 
@@ -81,6 +81,13 @@ type Backend interface {
     // is open yet, or updates an existing open one's title/body —
     // idempotent, the release-strategy: pr counterpart to UpsertDraft.
     UpsertReleasePR(ctx context.Context, req UpsertReleasePRRequest) (ReleasePR, error)
+
+    // CreateRelease creates an already-published release for tag directly
+    // — no pre-existing Draft Release to promote, unlike Publish. Used by
+    // release-strategy: pr's publish path, where the version bump and
+    // changelog entry were already reviewed and merged via a release PR
+    // (UpsertReleasePR) rather than upserted as a Draft Release.
+    CreateRelease(ctx context.Context, tag, releaseName, body string) error
 
     // GitRemoteURL returns a git remote URL for this repo with credentials
     // embedded, suitable for a local `git push` (see internal/git.PushBranch)

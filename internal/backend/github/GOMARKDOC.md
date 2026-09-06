@@ -14,6 +14,7 @@ Package github implements backend.Backend against the GitHub REST API.
   - [func New\(owner, repo, token string, opts ...Option\) \*Client](<#New>)
   - [func \(c \*Client\) CommitURL\(sha string\) string](<#Client.CommitURL>)
   - [func \(c \*Client\) CompareURL\(from, to string\) string](<#Client.CompareURL>)
+  - [func \(c \*Client\) CreateRelease\(ctx context.Context, tag, releaseName, body string\) error](<#Client.CreateRelease>)
   - [func \(c \*Client\) GitRemoteURL\(\) string](<#Client.GitRemoteURL>)
   - [func \(c \*Client\) Publish\(ctx context.Context, tag string\) error](<#Client.Publish>)
   - [func \(c \*Client\) ResolveAuthor\(ctx context.Context, sha string\) \(backend.AuthorReference, bool, error\)](<#Client.ResolveAuthor>)
@@ -61,6 +62,15 @@ func (c *Client) CompareURL(from, to string) string
 ```
 
 CompareURL implements backend.Backend.
+
+<a name="Client.CreateRelease"></a>
+### func \(\*Client\) [CreateRelease](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L242>)
+
+```go
+func (c *Client) CreateRelease(ctx context.Context, tag, releaseName, body string) error
+```
+
+CreateRelease implements backend.Backend.
 
 <a name="Client.GitRemoteURL"></a>
 ### func \(\*Client\) [GitRemoteURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L189>)
@@ -110,7 +120,7 @@ func (c *Client) UpsertDraft(ctx context.Context, req backend.UpsertDraftRequest
 UpsertDraft implements backend.Backend.
 
 <a name="Client.UpsertReleasePR"></a>
-### func \(\*Client\) [UpsertReleasePR](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L247>)
+### func \(\*Client\) [UpsertReleasePR](<https://github.com/brpaz/draftsman/blob/main/internal/backend/github/github.go#L285>)
 
 ```go
 func (c *Client) UpsertReleasePR(ctx context.Context, req backend.UpsertReleasePRRequest) (backend.ReleasePR, error)

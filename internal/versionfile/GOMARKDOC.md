@@ -11,6 +11,7 @@ Package versionfile locates and rewrites the version string inside a package's m
 ## Index
 
 - [func Bump\(target Target, content \[\]byte, newVersion string\) \(newContent \[\]byte, oldVersion string, err error\)](<#Bump>)
+- [func Read\(target Target, content \[\]byte\) \(string, error\)](<#Read>)
 - [type Kind](<#Kind>)
 - [type Target](<#Target>)
   - [func Detect\(repoPath string, pkg config.Package\) \(Target, bool, error\)](<#Detect>)
@@ -24,6 +25,15 @@ func Bump(target Target, content []byte, newVersion string) (newContent []byte, 
 ```
 
 Bump rewrites content to newVersion according to target.Kind, returning the new content and the version string it replaced \("" when content is empty, e.g. a VERSION file being created for the first time\). content is nil/empty only valid for KindPlain — JSON/TOML targets are only ever detected because the file already exists.
+
+<a name="Read"></a>
+## func [Read](<https://github.com/brpaz/draftsman/blob/main/internal/versionfile/versionfile.go#L151>)
+
+```go
+func Read(target Target, content []byte) (string, error)
+```
+
+Read extracts the current version string from content according to target.Kind, without modifying it — the read\-back counterpart to Bump, used at publish time once a release\-strategy: pr branch has been merged.
 
 <a name="Kind"></a>
 ## type [Kind](<https://github.com/brpaz/draftsman/blob/main/internal/versionfile/versionfile.go#L22>)

@@ -14,6 +14,7 @@ Package gitea implements backend.Backend against the Gitea REST API \(api/v1\), 
   - [func New\(baseURL, owner, repo, token string\) \*Client](<#New>)
   - [func \(c \*Client\) CommitURL\(sha string\) string](<#Client.CommitURL>)
   - [func \(c \*Client\) CompareURL\(from, to string\) string](<#Client.CompareURL>)
+  - [func \(c \*Client\) CreateRelease\(context.Context, string, string, string\) error](<#Client.CreateRelease>)
   - [func \(c \*Client\) GitRemoteURL\(\) string](<#Client.GitRemoteURL>)
   - [func \(c \*Client\) Publish\(ctx context.Context, tag string\) error](<#Client.Publish>)
   - [func \(c \*Client\) ResolveAuthor\(\_ context.Context, \_ string\) \(backend.AuthorReference, bool, error\)](<#Client.ResolveAuthor>)
@@ -60,6 +61,15 @@ func (c *Client) CompareURL(from, to string) string
 
 CompareURL implements backend.Backend.
 
+<a name="Client.CreateRelease"></a>
+### func \(\*Client\) [CreateRelease](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitea/gitea.go#L125>)
+
+```go
+func (c *Client) CreateRelease(context.Context, string, string, string) error
+```
+
+CreateRelease implements backend.Backend. Not yet implemented — see ticket 07 of .scratch/pr\-release\-strategy/spec.md.
+
 <a name="Client.GitRemoteURL"></a>
 ### func \(\*Client\) [GitRemoteURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitea/gitea.go#L113>)
 
@@ -79,7 +89,7 @@ func (c *Client) Publish(ctx context.Context, tag string) error
 Publish implements backend.Backend: flips the draft release matching tag to published. As with GitHub, the underlying git tag doesn't exist until this point; leaving target\_commitish unset in the PATCH means Gitea keeps whatever was set at draft\-creation time \(also left unset, which Gitea resolves to the default branch\), so publish always tags the default branch's current state rather than a stale commitish.
 
 <a name="Client.ResolveAuthor"></a>
-### func \(\*Client\) [ResolveAuthor](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitea/gitea.go#L127>)
+### func \(\*Client\) [ResolveAuthor](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitea/gitea.go#L133>)
 
 ```go
 func (c *Client) ResolveAuthor(_ context.Context, _ string) (backend.AuthorReference, bool, error)

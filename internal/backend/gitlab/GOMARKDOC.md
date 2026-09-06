@@ -17,6 +17,7 @@ Unlike GitHub/Gitea/Forgejo, this means the underlying git tag is created as soo
   - [func New\(baseURL, owner, repo, token string\) \*Client](<#New>)
   - [func \(c \*Client\) CommitURL\(sha string\) string](<#Client.CommitURL>)
   - [func \(c \*Client\) CompareURL\(from, to string\) string](<#Client.CompareURL>)
+  - [func \(c \*Client\) CreateRelease\(context.Context, string, string, string\) error](<#Client.CreateRelease>)
   - [func \(c \*Client\) GitRemoteURL\(\) string](<#Client.GitRemoteURL>)
   - [func \(c \*Client\) Publish\(ctx context.Context, tag string\) error](<#Client.Publish>)
   - [func \(c \*Client\) ResolveAuthor\(\_ context.Context, \_ string\) \(backend.AuthorReference, bool, error\)](<#Client.ResolveAuthor>)
@@ -71,6 +72,15 @@ func (c *Client) CompareURL(from, to string) string
 
 CompareURL implements backend.Backend.
 
+<a name="Client.CreateRelease"></a>
+### func \(\*Client\) [CreateRelease](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitlab/gitlab.go#L168>)
+
+```go
+func (c *Client) CreateRelease(context.Context, string, string, string) error
+```
+
+CreateRelease implements backend.Backend. Not yet implemented — no ticket covers a GitLab adapter for release\-strategy: pr \(see UpsertReleasePR's own doc comment\).
+
 <a name="Client.GitRemoteURL"></a>
 ### func \(\*Client\) [GitRemoteURL](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitlab/gitlab.go#L153>)
 
@@ -90,7 +100,7 @@ func (c *Client) Publish(ctx context.Context, tag string) error
 Publish implements backend.Backend: flips the draft's released\_at to now, clearing upcoming\_release.
 
 <a name="Client.ResolveAuthor"></a>
-### func \(\*Client\) [ResolveAuthor](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitlab/gitlab.go#L169>)
+### func \(\*Client\) [ResolveAuthor](<https://github.com/brpaz/draftsman/blob/main/internal/backend/gitlab/gitlab.go#L176>)
 
 ```go
 func (c *Client) ResolveAuthor(_ context.Context, _ string) (backend.AuthorReference, bool, error)
