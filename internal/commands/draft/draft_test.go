@@ -3,6 +3,10 @@ package draft
 import (
 	"bytes"
 	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,7 +24,9 @@ import (
 // server — the GitHub adapter's own HTTP mechanics are already covered by
 // internal/backend/github's httptest suite.
 type fakeBackend struct {
-	upserts []backend.UpsertDraftRequest
+	upserts      []backend.UpsertDraftRequest
+	releasePRs   []backend.UpsertReleasePRRequest
+	gitRemoteURL string
 }
 
 func (f *fakeBackend) UpsertDraft(_ context.Context, req backend.UpsertDraftRequest) error {
@@ -37,6 +43,13 @@ func (f *fakeBackend) ResolveAuthor(context.Context, string) (backend.AuthorRefe
 func (f *fakeBackend) ResolvePR(context.Context, string) (commit.PRReference, bool, error) {
 	return commit.PRReference{}, false, nil
 }
+
+func (f *fakeBackend) UpsertReleasePR(_ context.Context, req backend.UpsertReleasePRRequest) (backend.ReleasePR, error) {
+	f.releasePRs = append(f.releasePRs, req)
+	return backend.ReleasePR{Number: len(f.releasePRs), URL: "https://example.com/pull/" + req.Branch}, nil
+}
+
+func (f *fakeBackend) GitRemoteURL() string { return f.gitRemoteURL }
 
 func multiPlan() *engine.Plan {
 	return &engine.Plan{
@@ -134,4 +147,103 @@ func TestRunMulti_NoPendingPackagesIsNotAnError(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, fb.upserts)
 	assert.Contains(t, out.String(), "nothing to release")
+}
+
+func singlePlanWithPending() *engine.Plan {
+	return &engine.Plan{
+		SuggestedVersion: "1.1.0",
+		Packages: []engine.PackagePlan{
+			{Sections: []engine.Section{{Name: "Features", Entries: []engine.Entry{{Description: "add thing"}}}}},
+		},
+	}
+}
+
+func TestRunPR_SingleMode_PushesBranchAndOpensReleasePR(t *testing.T) {
+	local, remote := newRepoWithRemote(t)
+	fb := &fakeBackend{gitRemoteURL: remote}
+	var out bytes.Buffer
+
+	err := runPR(context.Background(), local, config.Default(), fb, singlePlanWithPending(), &out)
+	require.NoError(t, err)
+
+	require.Len(t, fb.releasePRs, 1)
+	req := fb.releasePRs[0]
+	assert.Equal(t, "draftsman-release", req.Branch)
+	assert.Equal(t, "main", req.Base)
+	assert.Contains(t, req.Title, "1.1.0")
+	assert.Contains(t, req.Body, "add thing")
+
+	assert.Equal(t, "1.1.0\n", showRemoteFile(t, remote, "draftsman-release", "VERSION"))
+	assert.Contains(t, out.String(), "https://example.com/pull/draftsman-release")
+}
+
+func TestRunPR_RerunUpdatesSameBranchAndPR(t *testing.T) {
+	local, remote := newRepoWithRemote(t)
+	fb := &fakeBackend{gitRemoteURL: remote}
+	var out bytes.Buffer
+
+	require.NoError(t, runPR(context.Background(), local, config.Default(), fb, singlePlanWithPending(), &out))
+
+	// Simulate more commits landing before the PR is merged, then rerun
+	// with a higher suggested version.
+	runGitCmd(t, local, "commit", "--allow-empty", "-m", "feat: more stuff")
+	plan := &engine.Plan{
+		SuggestedVersion: "1.2.0",
+		Packages: []engine.PackagePlan{
+			{Sections: []engine.Section{{Name: "Features", Entries: []engine.Entry{{Description: "more stuff"}}}}},
+		},
+	}
+	require.NoError(t, runPR(context.Background(), local, config.Default(), fb, plan, &out))
+
+	require.Len(t, fb.releasePRs, 2, "each run upserts against the same branch, never opening a second one")
+	assert.Equal(t, "draftsman-release", fb.releasePRs[0].Branch)
+	assert.Equal(t, "draftsman-release", fb.releasePRs[1].Branch)
+	assert.Equal(t, "1.2.0\n", showRemoteFile(t, remote, "draftsman-release", "VERSION"), "the branch must reflect the latest run, not the first")
+}
+
+func TestRunPR_NoPendingReleaseIsNotAnError(t *testing.T) {
+	local, remote := newRepoWithRemote(t)
+	fb := &fakeBackend{gitRemoteURL: remote}
+	var out bytes.Buffer
+
+	err := runPR(context.Background(), local, config.Default(), fb, &engine.Plan{}, &out)
+	require.NoError(t, err)
+	assert.Empty(t, fb.releasePRs)
+	assert.Contains(t, out.String(), "nothing to release")
+}
+
+// newRepoWithRemote sets up a local repo with one commit on "main" plus a
+// bare repo added as its "origin" remote — mirrors internal/git's own
+// PushBranch fixture, kept local here since it's an unexported test helper
+// in a different package.
+func newRepoWithRemote(t *testing.T) (local, remote string) {
+	t.Helper()
+
+	local = t.TempDir()
+	runGitCmd(t, local, "init", "-q", "-b", "main")
+	runGitCmd(t, local, "config", "user.email", "test@example.com")
+	runGitCmd(t, local, "config", "user.name", "Test")
+	require.NoError(t, os.WriteFile(filepath.Join(local, "README.md"), []byte("hello\n"), 0o644))
+	runGitCmd(t, local, "add", "README.md")
+	runGitCmd(t, local, "commit", "-q", "-m", "chore: init")
+
+	remote = t.TempDir()
+	runGitCmd(t, remote, "init", "-q", "--bare")
+
+	return local, remote
+}
+
+func runGitCmd(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git %s: %s", strings.Join(args, " "), out)
+	return strings.TrimSpace(string(out))
+}
+
+func showRemoteFile(t *testing.T, remote, ref, path string) string {
+	t.Helper()
+	out, err := exec.Command("git", "-C", remote, "show", ref+":"+path).CombinedOutput()
+	require.NoError(t, err, "git show %s:%s: %s", ref, path, out)
+	return string(out)
 }

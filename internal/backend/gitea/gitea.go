@@ -108,6 +108,18 @@ func (c *Client) CompareURL(from, to string) string {
 	return fmt.Sprintf("%s/%s/%s/compare/%s...%s", c.baseURL, c.owner, c.repo, from, to)
 }
 
+// GitRemoteURL implements backend.Backend. "oauth2" is Gitea's documented
+// placeholder username for token-based HTTPS auth.
+func (c *Client) GitRemoteURL() string {
+	return backend.FormatGitRemoteURL(c.baseURL, "oauth2", c.token, c.owner+"/"+c.repo)
+}
+
+// UpsertReleasePR implements backend.Backend. Not yet implemented — see
+// ticket 07 of .scratch/pr-release-strategy/spec.md.
+func (c *Client) UpsertReleasePR(context.Context, backend.UpsertReleasePRRequest) (backend.ReleasePR, error) {
+	return backend.ReleasePR{}, fmt.Errorf("gitea: UpsertReleasePR not yet implemented")
+}
+
 // ResolveAuthor implements backend.Backend. Unlike GitHub's "get a commit"
 // endpoint, no Gitea endpoint returning a commit's linked account has been
 // verified against a live instance — per ADR-0001, this always reports

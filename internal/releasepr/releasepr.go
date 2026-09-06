@@ -28,11 +28,14 @@ type FilePlan struct {
 	VersionFilePath string
 	OldVersion      string
 	NewVersion      string
+	// VersionFileContent is the version file's full new content, ready to
+	// write as-is — nil when VersionFileNoOp.
+	VersionFileContent []byte
 
 	// ChangelogPath is relative to the repository root.
 	ChangelogPath string
 	// ChangelogEntry is the full CHANGELOG.md content after prepending
-	// this release's entry.
+	// this release's entry, ready to write as-is.
 	ChangelogEntry string
 }
 
@@ -100,12 +103,13 @@ func computeOne(repoPath string, cfg *config.Config, pkg config.Package, section
 		if err != nil {
 			return FilePlan{}, err
 		}
-		_, oldVersion, err := versionfile.Bump(target, content, newVersion)
+		newContent, oldVersion, err := versionfile.Bump(target, content, newVersion)
 		if err != nil {
 			return FilePlan{}, fmt.Errorf("bumping %s: %w", target.Path, err)
 		}
 
 		fp.VersionFilePath = target.Path
+		fp.VersionFileContent = newContent
 		fp.OldVersion = oldVersion
 		fp.NewVersion = newVersion
 	}

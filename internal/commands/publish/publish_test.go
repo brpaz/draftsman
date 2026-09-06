@@ -39,6 +39,12 @@ func (f *fakeBackend) ResolvePR(context.Context, string) (commit.PRReference, bo
 	return commit.PRReference{}, false, nil
 }
 
+func (f *fakeBackend) UpsertReleasePR(context.Context, backend.UpsertReleasePRRequest) (backend.ReleasePR, error) {
+	return backend.ReleasePR{}, nil
+}
+
+func (f *fakeBackend) GitRemoteURL() string { return "" }
+
 func multiPlan() *engine.Plan {
 	return &engine.Plan{
 		Packages: []engine.PackagePlan{

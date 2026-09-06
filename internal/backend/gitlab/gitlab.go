@@ -148,6 +148,20 @@ func (c *Client) CompareURL(from, to string) string {
 	return fmt.Sprintf("%s/%s/-/compare/%s...%s", c.baseURL, c.projectPath, from, to)
 }
 
+// GitRemoteURL implements backend.Backend. "oauth2" is GitLab's documented
+// placeholder username for token-based HTTPS auth.
+func (c *Client) GitRemoteURL() string {
+	return backend.FormatGitRemoteURL(c.baseURL, "oauth2", c.token, c.projectPath)
+}
+
+// UpsertReleasePR implements backend.Backend. Not yet implemented —
+// release-strategy: pr's ticket breakdown (.scratch/pr-release-strategy/)
+// scopes real adapter work to GitHub, Gitea and Forgejo; GitLab uses merge
+// requests rather than pull requests and isn't covered by any ticket yet.
+func (c *Client) UpsertReleasePR(context.Context, backend.UpsertReleasePRRequest) (backend.ReleasePR, error) {
+	return backend.ReleasePR{}, fmt.Errorf("gitlab: UpsertReleasePR not yet implemented")
+}
+
 // ResolveAuthor implements backend.Backend. GitLab's "get a single commit"
 // endpoint returns only the raw git author_name/author_email, not a linked
 // account — per ADR-0001, this always reports "not supported" rather than

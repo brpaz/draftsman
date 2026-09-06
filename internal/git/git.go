@@ -92,6 +92,23 @@ func ChangedFiles(ctx context.Context, repoPath, sha string) ([]string, error) {
 	return strings.Split(raw, "\n"), nil
 }
 
+// CurrentBranch returns the name of the branch currently checked out in
+// repoPath — used by release-strategy: pr to determine a release PR's base
+// branch, on the assumption that CI has the default branch checked out
+// when draft/publish run (the same assumption every other release-strategy:
+// pr trigger already makes: "run on every push to default").
+func CurrentBranch(ctx context.Context, repoPath string) (string, error) {
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD")
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("git rev-parse --abbrev-ref HEAD: %w: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	return strings.TrimSpace(stdout.String()), nil
+}
+
 // Tags returns every tag reachable from HEAD in repoPath. A repository with
 // no commits yet returns an empty slice, not an error.
 func Tags(ctx context.Context, repoPath string) ([]string, error) {

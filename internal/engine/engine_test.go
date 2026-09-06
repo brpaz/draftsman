@@ -43,6 +43,12 @@ func (f *fakeBackend) ResolveAuthor(ctx context.Context, sha string) (backend.Au
 	return f.resolveAuthor(ctx, sha)
 }
 
+func (f *fakeBackend) UpsertReleasePR(context.Context, backend.UpsertReleasePRRequest) (backend.ReleasePR, error) {
+	return backend.ReleasePR{}, nil
+}
+
+func (f *fakeBackend) GitRemoteURL() string { return "" }
+
 // runGit runs a git subcommand against dir, failing the test on error.
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()

@@ -4,6 +4,8 @@ package backend
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/brpaz/draftsman/internal/commit"
 )
@@ -23,6 +25,22 @@ type UpsertDraftRequest struct {
 type AuthorReference struct {
 	Login      string
 	ProfileURL string
+}
+
+// UpsertReleasePRRequest is what's needed to open or update a
+// release-strategy: pr release PR (see .scratch/pr-release-strategy/spec.md)
+// for a branch that's already been pushed.
+type UpsertReleasePRRequest struct {
+	Branch string // head branch, already pushed
+	Base   string // base branch — the repo's default branch
+	Title  string
+	Body   string
+}
+
+// ReleasePR identifies the PR UpsertReleasePR created or found.
+type ReleasePR struct {
+	Number int
+	URL    string
 }
 
 // Backend is implemented identically by every git hosting adapter.
@@ -57,4 +75,30 @@ type Backend interface {
 	// email not tied to one) — callers fall back to the plain git author
 	// name rather than guessing an account (ADR-0001).
 	ResolveAuthor(ctx context.Context, sha string) (ref AuthorReference, ok bool, err error)
+
+	// UpsertReleasePR creates a PR for req.Branch against req.Base if none
+	// is open yet, or updates an existing open one's title/body —
+	// idempotent, the release-strategy: pr counterpart to UpsertDraft.
+	UpsertReleasePR(ctx context.Context, req UpsertReleasePRRequest) (ReleasePR, error)
+
+	// GitRemoteURL returns a git remote URL for this repo with credentials
+	// embedded, suitable for a local `git push` (see internal/git.PushBranch)
+	// — pure string formatting from the repo coordinates and token the
+	// adapter was constructed with, like CommitURL/CompareURL: no API call,
+	// always succeeds.
+	GitRemoteURL() string
+}
+
+// FormatGitRemoteURL builds an authenticated git remote URL from webBaseURL
+// (e.g. "https://github.com", or a self-hosted forge's root — the same
+// value each adapter already uses for its web-UI links) and path (the
+// "owner/repo" — or, for GitLab, a possibly-nested project path). Shared by
+// every adapter's GitRemoteURL so the credential-embedding format lives in
+// one place.
+func FormatGitRemoteURL(webBaseURL, username, token, path string) string {
+	scheme, host, ok := strings.Cut(webBaseURL, "://")
+	if !ok {
+		scheme, host = "https", webBaseURL
+	}
+	return fmt.Sprintf("%s://%s:%s@%s/%s.git", scheme, username, token, host, path)
 }
