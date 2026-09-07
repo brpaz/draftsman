@@ -194,10 +194,13 @@ func (c *Client) createDraft(ctx context.Context, req backend.UpsertDraftRequest
 	return nil
 }
 
+// updateRelease re-supplies tag_name on every update — omitting it resets
+// a still-draft release's tag to the backend's "untagged-<hash>" placeholder.
 func (c *Client) updateRelease(ctx context.Context, id int64, req backend.UpsertDraftRequest) error {
 	payload, err := json.Marshal(map[string]any{
-		"name": releaseName(req),
-		"body": req.Body,
+		"tag_name": req.Tag,
+		"name":     releaseName(req),
+		"body":     req.Body,
 	})
 	if err != nil {
 		return err

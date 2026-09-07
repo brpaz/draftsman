@@ -80,6 +80,7 @@ func TestUpsertDraft_UpdatesWhenPresent(t *testing.T) {
 	require.True(t, patched, "existing draft should be updated via PATCH")
 	require.False(t, posted, "no new release should be created when one already exists")
 	assert.Equal(t, "## Bug Fixes\n- correct typo\n", patchBody["body"])
+	assert.Equal(t, "v1.0.0", patchBody["tag_name"], "must re-supply tag_name on every update or the backend resets the draft's tag to its untagged-<hash> placeholder")
 }
 
 func TestUpsertDraft_RefusesToModifyPublishedRelease(t *testing.T) {
