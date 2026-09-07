@@ -83,6 +83,22 @@ In `single` mode, this only sections entries within the one Draft Release. In `m
 
 Setting `packages` at all is a **full replace** of the (empty) default, same reasoning as `categories`.
 
+### Root package
+
+`path: ""` (or `path: "."`) is a catch-all sentinel rather than a literal prefix: it matches any changed file not claimed by another configured Package's `path`, instead of matching every file. Use it to version a root module alongside its subpackages without swallowing their commits too:
+
+```yaml
+mode: multi
+packages:
+  - path: "" # root module — everything not under tracing/ or db/
+    name: ""
+  - path: tracing
+    name: tracing
+  - path: db
+    name: db
+tag-format: "{{package}}v{{version}}" # -> v1.2.3, tracing/v1.2.3, db/v1.2.3
+```
+
 ## `skip-changelog-trailer`
 
 ```yaml

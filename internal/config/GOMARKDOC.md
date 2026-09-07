@@ -52,7 +52,7 @@ type Category struct {
 ```
 
 <a name="Config"></a>
-## type [Config](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L76-L97>)
+## type [Config](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L80-L101>)
 
 Config is the fully\-defaulted result of loading .draftsman.yml.
 
@@ -82,7 +82,7 @@ type Config struct {
 ```
 
 <a name="Default"></a>
-### func [Default](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L109>)
+### func [Default](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L113>)
 
 ```go
 func Default() *Config
@@ -91,7 +91,7 @@ func Default() *Config
 Default returns the built\-in configuration used when no field is overridden — this is also what a repo with no .draftsman.yml gets.
 
 <a name="Load"></a>
-### func [Load](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L130>)
+### func [Load](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L134>)
 
 ```go
 func Load(path string, required bool) (*Config, error)
@@ -100,7 +100,7 @@ func Load(path string, required bool) (*Config, error)
 Load reads path and applies any fields it sets on top of Default\(\). A missing file is only an error when required is true — callers should pass required = true exactly when the path was explicitly requested \(e.g. an explicit \-\-config flag\), so an absent default path silently falls back to defaults while an absent explicit path is a real error.
 
 <a name="Config.FooterEnabled"></a>
-### func \(\*Config\) [FooterEnabled](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L103>)
+### func \(\*Config\) [FooterEnabled](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L107>)
 
 ```go
 func (c *Config) FooterEnabled() bool
@@ -109,9 +109,9 @@ func (c *Config) FooterEnabled() bool
 FooterEnabled reports whether c.Footer's attribution footer should be appended. A nil Footer \(any Config not built through Default/Load, e.g. a test\-constructed literal\) defaults to true, same as Default's own value — callers never need to nil\-check Footer themselves.
 
 <a name="Package"></a>
-## type [Package](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L62-L73>)
+## type [Package](<https://github.com/brpaz/draftsman/blob/main/internal/config/config.go#L66-L77>)
 
-Package maps a path prefix to a monorepo package name. A commit is attributed to every Package whose Path prefixes one of its changed files.
+Package maps a path prefix to a monorepo package name. A commit is attributed to every Package whose Path prefixes one of its changed files. Path "" or "." is a root sentinel instead of a literal prefix: it matches any changed file not claimed by another configured Package's prefix, so a root module can be declared alongside its subpackages without swallowing their commits too.
 
 ```go
 type Package struct {
