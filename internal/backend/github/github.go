@@ -322,14 +322,8 @@ func (c *Client) createDraft(ctx context.Context, req backend.UpsertDraftRequest
 	return nil
 }
 
-// updateRelease re-supplies tag_name on every update, not just name/body.
-// Confirmed by release-drafter's own fix for the identical bug
-// (release-drafter/release-drafter#204, fixed in #367): a PATCH that omits
-// tag_name resets a still-draft release's tag to GitHub's internal
-// "untagged-<hash>" placeholder, even though nothing asked for that. Since
-// UpsertDraft calls this on every subsequent push, an omitted tag_name here
-// silently corrupts the tag long before Publish ever runs — confirmed
-// live against brpaz/sops-tui's v0.1.0 release.
+// updateRelease re-supplies tag_name on every update — omitting it resets
+// a still-draft release's tag to GitHub's "untagged-<hash>" placeholder.
 func (c *Client) updateRelease(ctx context.Context, id int64, req backend.UpsertDraftRequest) error {
 	return c.patchRelease(ctx, id, map[string]any{
 		"tag_name": req.Tag,
