@@ -211,3 +211,124 @@ func TestCompareURL_UsesBaseURLAsWebRoot(t *testing.T) {
 	client := forgejo.New("https://codeberg.org/", "brpaz", "draftsman", "test-token")
 	require.Equal(t, "https://codeberg.org/brpaz/draftsman/compare/v1.0.0...v1.1.0", client.CompareURL("v1.0.0", "v1.1.0"))
 }
+
+func TestGitRemoteURL_EmbedsTokenAsOauth2(t *testing.T) {
+	client := forgejo.New("https://codeberg.org/", "brpaz", "draftsman", "test-token")
+	require.Equal(t, "https://oauth2:test-token@codeberg.org/brpaz/draftsman.git", client.GitRemoteURL())
+}
+
+func TestUpsertReleasePR_CreatesWhenAbsent(t *testing.T) {
+	var createBody map[string]any
+	created := false
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/repos/brpaz/draftsman/pulls":
+			assert.Equal(t, "open", r.URL.Query().Get("state"))
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`[]`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/repos/brpaz/draftsman/pulls":
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&createBody))
+			created = true
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"number": 7, "html_url": "https://codeberg.org/brpaz/draftsman/pulls/7", "head": {"ref": "release/foo"}}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := forgejo.New(server.URL, "brpaz", "draftsman", "test-token")
+	pr, err := client.UpsertReleasePR(context.Background(), backend.UpsertReleasePRRequest{
+		Branch: "release/foo", Base: "main", Title: "chore(main): release 1.0.0", Body: "notes",
+	})
+	require.NoError(t, err)
+
+	require.True(t, created)
+	assert.Equal(t, 7, pr.Number)
+	assert.Equal(t, "release/foo", createBody["head"])
+	assert.Equal(t, "main", createBody["base"])
+}
+
+func TestUpsertReleasePR_UpdatesWhenOpenPRExists(t *testing.T) {
+	var patchBody map[string]any
+	patched := false
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/repos/brpaz/draftsman/pulls":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`[{"number": 7, "html_url": "https://codeberg.org/brpaz/draftsman/pulls/7", "head": {"ref": "release/foo"}}]`))
+		case r.Method == http.MethodPatch && r.URL.Path == "/api/v1/repos/brpaz/draftsman/pulls/7":
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&patchBody))
+			patched = true
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"number": 7, "html_url": "https://codeberg.org/brpaz/draftsman/pulls/7", "head": {"ref": "release/foo"}}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := forgejo.New(server.URL, "brpaz", "draftsman", "test-token")
+	pr, err := client.UpsertReleasePR(context.Background(), backend.UpsertReleasePRRequest{
+		Branch: "release/foo", Base: "main", Title: "chore(main): release 1.1.0", Body: "more notes",
+	})
+	require.NoError(t, err)
+
+	require.True(t, patched, "an existing open PR for the branch must be updated, not recreated")
+	assert.Equal(t, 7, pr.Number)
+	assert.Equal(t, "more notes", patchBody["body"])
+}
+
+func TestUpsertReleasePR_IgnoresOpenPRsForOtherBranches(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/repos/brpaz/draftsman/pulls":
+			w.Header().Set("Content-Type", "application/json")
+			if r.URL.Query().Get("page") != "1" {
+				_, _ = w.Write([]byte(`[]`))
+				return
+			}
+			_, _ = w.Write([]byte(`[{"number": 3, "html_url": "https://codeberg.org/brpaz/draftsman/pulls/3", "head": {"ref": "some-other-branch"}}]`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/repos/brpaz/draftsman/pulls":
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"number": 8, "html_url": "https://codeberg.org/brpaz/draftsman/pulls/8", "head": {"ref": "release/foo"}}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := forgejo.New(server.URL, "brpaz", "draftsman", "test-token")
+	pr, err := client.UpsertReleasePR(context.Background(), backend.UpsertReleasePRRequest{Branch: "release/foo", Base: "main"})
+	require.NoError(t, err)
+	assert.Equal(t, 8, pr.Number, "an open PR for a different branch must not be mistaken for this one")
+}
+
+func TestCreateRelease_PostsAnAlreadyPublishedRelease(t *testing.T) {
+	var createBody map[string]any
+	created := false
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/repos/brpaz/draftsman/releases":
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&createBody))
+			created = true
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id": 1, "tag_name": "v1.1.0", "draft": false}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := forgejo.New(server.URL, "brpaz", "draftsman", "test-token")
+	err := client.CreateRelease(context.Background(), "v1.1.0", "", "## Features\n- add thing\n")
+	require.NoError(t, err)
+
+	require.True(t, created)
+	assert.Equal(t, "v1.1.0", createBody["tag_name"])
+	assert.Equal(t, "v1.1.0", createBody["name"], "an empty releaseName falls back to the tag")
+	assert.Equal(t, false, createBody["draft"])
+}

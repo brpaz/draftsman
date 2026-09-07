@@ -218,3 +218,20 @@ func TestCompareURL_UsesBaseURLAsWebRoot(t *testing.T) {
 	client := gitlab.New("https://gitlab.example.com/", "brpaz", "draftsman", "test-token")
 	require.Equal(t, "https://gitlab.example.com/brpaz/draftsman/-/compare/v1.0.0...v1.1.0", client.CompareURL("v1.0.0", "v1.1.0"))
 }
+
+func TestGitRemoteURL_EmbedsTokenAsOauth2(t *testing.T) {
+	client := gitlab.New("https://gitlab.example.com/", "brpaz", "draftsman", "test-token")
+	require.Equal(t, "https://oauth2:test-token@gitlab.example.com/brpaz/draftsman.git", client.GitRemoteURL())
+}
+
+func TestUpsertReleasePR_NotYetImplemented(t *testing.T) {
+	client := gitlab.New("https://gitlab.example.com/", "brpaz", "draftsman", "test-token")
+	_, err := client.UpsertReleasePR(context.Background(), backend.UpsertReleasePRRequest{})
+	require.Error(t, err)
+}
+
+func TestCreateRelease_NotYetImplemented(t *testing.T) {
+	client := gitlab.New("https://gitlab.example.com/", "brpaz", "draftsman", "test-token")
+	err := client.CreateRelease(context.Background(), "v1.0.0", "", "")
+	require.Error(t, err)
+}

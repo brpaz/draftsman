@@ -3,6 +3,10 @@ package draft
 import (
 	"bytes"
 	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,7 +24,9 @@ import (
 // server — the GitHub adapter's own HTTP mechanics are already covered by
 // internal/backend/github's httptest suite.
 type fakeBackend struct {
-	upserts []backend.UpsertDraftRequest
+	upserts      []backend.UpsertDraftRequest
+	releasePRs   []backend.UpsertReleasePRRequest
+	gitRemoteURL string
 }
 
 func (f *fakeBackend) UpsertDraft(_ context.Context, req backend.UpsertDraftRequest) error {
@@ -37,6 +43,15 @@ func (f *fakeBackend) ResolveAuthor(context.Context, string) (backend.AuthorRefe
 func (f *fakeBackend) ResolvePR(context.Context, string) (commit.PRReference, bool, error) {
 	return commit.PRReference{}, false, nil
 }
+
+func (f *fakeBackend) UpsertReleasePR(_ context.Context, req backend.UpsertReleasePRRequest) (backend.ReleasePR, error) {
+	f.releasePRs = append(f.releasePRs, req)
+	return backend.ReleasePR{Number: len(f.releasePRs), URL: "https://example.com/pull/" + req.Branch}, nil
+}
+
+func (f *fakeBackend) GitRemoteURL() string { return f.gitRemoteURL }
+
+func (f *fakeBackend) CreateRelease(context.Context, string, string, string) error { return nil }
 
 func multiPlan() *engine.Plan {
 	return &engine.Plan{
@@ -134,4 +149,249 @@ func TestRunMulti_NoPendingPackagesIsNotAnError(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, fb.upserts)
 	assert.Contains(t, out.String(), "nothing to release")
+}
+
+func singlePlanWithPending() *engine.Plan {
+	return &engine.Plan{
+		SuggestedVersion: "1.1.0",
+		Packages: []engine.PackagePlan{
+			{Sections: []engine.Section{{Name: "Features", Entries: []engine.Entry{{Description: "add thing"}}}}},
+		},
+	}
+}
+
+func TestRunPR_SingleMode_PushesBranchAndOpensReleasePR(t *testing.T) {
+	local, remote := newRepoWithRemote(t)
+	fb := &fakeBackend{gitRemoteURL: remote}
+	var out bytes.Buffer
+
+	err := runPR(context.Background(), local, config.Default(), fb, singlePlanWithPending(), &out)
+	require.NoError(t, err)
+
+	require.Len(t, fb.releasePRs, 1)
+	req := fb.releasePRs[0]
+	assert.Equal(t, "draftsman-release", req.Branch)
+	assert.Equal(t, "main", req.Base)
+	assert.Contains(t, req.Title, "1.1.0")
+	assert.Contains(t, req.Body, "add thing")
+
+	assert.Equal(t, "1.1.0\n", showRemoteFile(t, remote, "draftsman-release", "VERSION"))
+	assert.Contains(t, out.String(), "https://example.com/pull/draftsman-release")
+}
+
+func TestRunPR_RerunUpdatesSameBranchAndPR(t *testing.T) {
+	local, remote := newRepoWithRemote(t)
+	fb := &fakeBackend{gitRemoteURL: remote}
+	var out bytes.Buffer
+
+	require.NoError(t, runPR(context.Background(), local, config.Default(), fb, singlePlanWithPending(), &out))
+
+	// Simulate more commits landing before the PR is merged, then rerun
+	// with a higher suggested version.
+	runGitCmd(t, local, "commit", "--allow-empty", "-m", "feat: more stuff")
+	plan := &engine.Plan{
+		SuggestedVersion: "1.2.0",
+		Packages: []engine.PackagePlan{
+			{Sections: []engine.Section{{Name: "Features", Entries: []engine.Entry{{Description: "more stuff"}}}}},
+		},
+	}
+	require.NoError(t, runPR(context.Background(), local, config.Default(), fb, plan, &out))
+
+	require.Len(t, fb.releasePRs, 2, "each run upserts against the same branch, never opening a second one")
+	assert.Equal(t, "draftsman-release", fb.releasePRs[0].Branch)
+	assert.Equal(t, "draftsman-release", fb.releasePRs[1].Branch)
+	assert.Equal(t, "1.2.0\n", showRemoteFile(t, remote, "draftsman-release", "VERSION"), "the branch must reflect the latest run, not the first")
+}
+
+func TestRunPR_HumanEditedBranchIsLeftAlone(t *testing.T) {
+	local, remote := newRepoWithRemote(t)
+	fb := &fakeBackend{gitRemoteURL: remote}
+	var out bytes.Buffer
+
+	// First run creates the branch, bot-authored.
+	require.NoError(t, runPR(context.Background(), local, config.Default(), fb, singlePlanWithPending(), &out))
+	require.Len(t, fb.releasePRs, 1)
+
+	// A human pushes a manual edit directly to the release branch.
+	runGitCmd(t, local, "fetch", remote, "draftsman-release")
+	runGitCmd(t, local, "checkout", "-q", "FETCH_HEAD")
+	require.NoError(t, os.WriteFile(filepath.Join(local, "VERSION"), []byte("9.9.9\n"), 0o644))
+	commitAsHuman(t, local, "manual bump")
+	runGitCmd(t, local, "push", remote, "HEAD:draftsman-release")
+	runGitCmd(t, local, "checkout", "-q", "main")
+
+	out.Reset()
+	require.NoError(t, runPR(context.Background(), local, config.Default(), fb, singlePlanWithPending(), &out))
+
+	assert.Len(t, fb.releasePRs, 1, "a human-edited branch must not be force-updated or re-upserted")
+	assert.Contains(t, out.String(), "manual edits")
+	assert.Equal(t, "9.9.9\n", showRemoteFile(t, remote, "draftsman-release", "VERSION"), "the human's edit must survive")
+}
+
+func multiPlanWithPending() *engine.Plan {
+	return &engine.Plan{
+		Packages: []engine.PackagePlan{
+			{
+				Name:             "api",
+				SuggestedVersion: "2.1.0",
+				Sections: []engine.Section{{Name: "Features", Entries: []engine.Entry{
+					{Description: "api-only change"},
+					{Description: "shared infra change"}, // a cross-cutting commit
+				}}},
+			},
+			{
+				Name:             "worker",
+				SuggestedVersion: "1.0.1",
+				Sections: []engine.Section{{Name: "Bug Fixes", Entries: []engine.Entry{
+					{Description: "worker-only fix"},
+					{Description: "shared infra change"}, // duplicated into both, same as engine.Compute does
+				}}},
+			},
+		},
+	}
+}
+
+func multiModeConfig() *config.Config {
+	cfg := config.Default()
+	cfg.Mode = config.ModeMulti
+	cfg.Packages = []config.Package{{Path: "api", Name: "api"}, {Path: "worker", Name: "worker"}}
+	return cfg
+}
+
+func TestRunPR_MultiMode_OnePerPendingPackage(t *testing.T) {
+	local, remote := newRepoWithRemote(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(local, "api"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(local, "worker"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(local, "api", "package.json"), []byte(`{"version": "2.0.0"}`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(local, "worker", "go.mod"), []byte("module example.com/worker\n\ngo 1.23\n"), 0o644))
+	runGitCmd(t, local, "add", "-A")
+	runGitCmd(t, local, "commit", "-q", "-m", "chore: add packages")
+
+	fb := &fakeBackend{gitRemoteURL: remote}
+	var out bytes.Buffer
+
+	err := runPR(context.Background(), local, multiModeConfig(), fb, multiPlanWithPending(), &out)
+	require.NoError(t, err)
+
+	require.Len(t, fb.releasePRs, 2)
+	byBranch := map[string]backend.UpsertReleasePRRequest{}
+	for _, req := range fb.releasePRs {
+		byBranch[req.Branch] = req
+	}
+
+	require.Contains(t, byBranch, "draftsman-release--api")
+	assert.Contains(t, byBranch["draftsman-release--api"].Body, "api-only change")
+	assert.Contains(t, byBranch["draftsman-release--api"].Body, "shared infra change", "a cross-cutting commit must appear in every affected package's branch")
+	assert.NotContains(t, byBranch["draftsman-release--api"].Body, "worker-only fix", "api's branch must not leak worker's entries")
+
+	require.Contains(t, byBranch, "draftsman-release--worker")
+	assert.Contains(t, byBranch["draftsman-release--worker"].Body, "worker-only fix")
+	assert.Contains(t, byBranch["draftsman-release--worker"].Body, "shared infra change")
+	assert.NotContains(t, byBranch["draftsman-release--worker"].Body, "api-only change")
+
+	apiVersionFile := showRemoteFile(t, remote, "draftsman-release--api", "api/package.json")
+	assert.Contains(t, apiVersionFile, `"version": "2.1.0"`)
+}
+
+func TestRunPR_MultiMode_HumanEditOnOnePackageDoesNotBlockOthers(t *testing.T) {
+	local, remote := newRepoWithRemote(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(local, "api"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(local, "worker"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(local, "api", "package.json"), []byte(`{"version": "2.0.0"}`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(local, "worker", "package.json"), []byte(`{"version": "1.0.0"}`), 0o644))
+	runGitCmd(t, local, "add", "-A")
+	runGitCmd(t, local, "commit", "-q", "-m", "chore: add packages")
+
+	fb := &fakeBackend{gitRemoteURL: remote}
+	var out bytes.Buffer
+	require.NoError(t, runPR(context.Background(), local, multiModeConfig(), fb, multiPlanWithPending(), &out))
+	require.Len(t, fb.releasePRs, 2)
+
+	// A human edits only api's release branch.
+	runGitCmd(t, local, "fetch", remote, "draftsman-release--api")
+	runGitCmd(t, local, "checkout", "-q", "FETCH_HEAD")
+	require.NoError(t, os.WriteFile(filepath.Join(local, "api", "package.json"), []byte(`{"version": "9.9.9"}`), 0o644))
+	commitAsHuman(t, local, "manual bump")
+	runGitCmd(t, local, "push", remote, "HEAD:draftsman-release--api")
+	runGitCmd(t, local, "checkout", "-q", "main")
+
+	fb.releasePRs = nil
+	out.Reset()
+	require.NoError(t, runPR(context.Background(), local, multiModeConfig(), fb, multiPlanWithPending(), &out))
+
+	require.Len(t, fb.releasePRs, 1, "only worker's branch should be re-upserted")
+	assert.Equal(t, "draftsman-release--worker", fb.releasePRs[0].Branch)
+	assert.Contains(t, out.String(), "manual edits")
+	assert.Contains(t, out.String(), "api")
+
+	assert.Contains(t, showRemoteFile(t, remote, "draftsman-release--api", "api/package.json"), "9.9.9", "the human's edit on api must survive")
+}
+
+func TestRunPR_NoPendingReleaseIsNotAnError(t *testing.T) {
+	local, remote := newRepoWithRemote(t)
+	fb := &fakeBackend{gitRemoteURL: remote}
+	var out bytes.Buffer
+
+	err := runPR(context.Background(), local, config.Default(), fb, &engine.Plan{}, &out)
+	require.NoError(t, err)
+	assert.Empty(t, fb.releasePRs)
+	assert.Contains(t, out.String(), "nothing to release")
+}
+
+// newRepoWithRemote sets up a local repo with one commit on "main" plus a
+// bare repo added as its "origin" remote — mirrors internal/git's own
+// PushBranch fixture, kept local here since it's an unexported test helper
+// in a different package.
+func newRepoWithRemote(t *testing.T) (local, remote string) {
+	t.Helper()
+
+	local = t.TempDir()
+	runGitCmd(t, local, "init", "-q", "-b", "main")
+	runGitCmd(t, local, "config", "user.email", "test@example.com")
+	runGitCmd(t, local, "config", "user.name", "Test")
+	require.NoError(t, os.WriteFile(filepath.Join(local, "README.md"), []byte("hello\n"), 0o644))
+	runGitCmd(t, local, "add", "README.md")
+	runGitCmd(t, local, "commit", "-q", "-m", "chore: init")
+
+	remote = t.TempDir()
+	runGitCmd(t, remote, "init", "-q", "--bare")
+
+	return local, remote
+}
+
+// commitAsHuman commits with explicit GIT_AUTHOR_*/GIT_COMMITTER_* env
+// vars (not "-c user.name=..."), so it can't be defeated by ambient env
+// vars a parent process (e.g. this repo's own git-hook runner) may already
+// have exported — those take precedence over -c config overrides.
+func commitAsHuman(t *testing.T, dir, message string) {
+	t.Helper()
+	cmd := exec.Command("git", "-C", dir, "commit", "-q", "-am", message)
+	var env []string
+	for _, kv := range os.Environ() {
+		if strings.HasPrefix(kv, "GIT_AUTHOR_") || strings.HasPrefix(kv, "GIT_COMMITTER_") {
+			continue
+		}
+		env = append(env, kv)
+	}
+	cmd.Env = append(env,
+		"GIT_AUTHOR_NAME=A Human", "GIT_AUTHOR_EMAIL=human@example.com",
+		"GIT_COMMITTER_NAME=A Human", "GIT_COMMITTER_EMAIL=human@example.com",
+	)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git commit: %s", out)
+}
+
+func runGitCmd(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git %s: %s", strings.Join(args, " "), out)
+	return strings.TrimSpace(string(out))
+}
+
+func showRemoteFile(t *testing.T, remote, ref, path string) string {
+	t.Helper()
+	out, err := exec.Command("git", "-C", remote, "show", ref+":"+path).CombinedOutput()
+	require.NoError(t, err, "git show %s:%s: %s", ref, path, out)
+	return string(out)
 }

@@ -3,6 +3,8 @@ package publish
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/brpaz/draftsman/internal/backend"
 	"github.com/brpaz/draftsman/internal/commit"
+	"github.com/brpaz/draftsman/internal/config"
 	"github.com/brpaz/draftsman/internal/engine"
 	"github.com/brpaz/draftsman/internal/version"
 )
@@ -19,7 +22,12 @@ import (
 // GitHub adapter's own HTTP mechanics are already covered by
 // internal/backend/github's httptest suite.
 type fakeBackend struct {
-	published []string
+	published       []string
+	createdReleases []createdRelease
+}
+
+type createdRelease struct {
+	tag, name, body string
 }
 
 func (f *fakeBackend) UpsertDraft(context.Context, backend.UpsertDraftRequest) error { return nil }
@@ -37,6 +45,17 @@ func (f *fakeBackend) ResolveAuthor(context.Context, string) (backend.AuthorRefe
 
 func (f *fakeBackend) ResolvePR(context.Context, string) (commit.PRReference, bool, error) {
 	return commit.PRReference{}, false, nil
+}
+
+func (f *fakeBackend) UpsertReleasePR(context.Context, backend.UpsertReleasePRRequest) (backend.ReleasePR, error) {
+	return backend.ReleasePR{}, nil
+}
+
+func (f *fakeBackend) GitRemoteURL() string { return "" }
+
+func (f *fakeBackend) CreateRelease(_ context.Context, tag, name, body string) error {
+	f.createdReleases = append(f.createdReleases, createdRelease{tag: tag, name: name, body: body})
+	return nil
 }
 
 func multiPlan() *engine.Plan {
@@ -126,4 +145,103 @@ func TestRunMulti_NoPendingPackagesIsNotAnError(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, fb.published)
 	assert.Contains(t, out.String(), "nothing to publish")
+}
+
+func TestRunPR_SingleMode_PublishesFromMergedChangelogAndVersionFile(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "package.json"), `{"name": "demo", "version": "1.1.0"}`)
+	writeFile(t, filepath.Join(dir, "CHANGELOG.md"), "# CHANGELOG\n\n## 1.1.0 - 2026-09-06\n\n## Features\n- add thing\n")
+
+	fb := &fakeBackend{}
+	var out bytes.Buffer
+
+	err := runPR(context.Background(), dir, config.Default(), fb, "", &out)
+	require.NoError(t, err)
+
+	require.Len(t, fb.createdReleases, 1)
+	assert.Equal(t, "v1.1.0", fb.createdReleases[0].tag)
+	assert.Contains(t, fb.createdReleases[0].body, "add thing")
+	assert.Contains(t, out.String(), "published v1.1.0")
+}
+
+func TestRunPR_GoModuleFallsBackToChangelogHeadingVersion(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/demo\n\ngo 1.23\n")
+	writeFile(t, filepath.Join(dir, "CHANGELOG.md"), "# CHANGELOG\n\n## 1.2.0 - 2026-09-06\n\n## Features\n- go thing\n")
+
+	fb := &fakeBackend{}
+	var out bytes.Buffer
+
+	err := runPR(context.Background(), dir, config.Default(), fb, "", &out)
+	require.NoError(t, err)
+
+	require.Len(t, fb.createdReleases, 1)
+	assert.Equal(t, "v1.2.0", fb.createdReleases[0].tag, "no version file for a Go module: fall back to the changelog heading")
+}
+
+func TestRunPR_MultiMode_PublishesOnlyPackagesWithMergedEntries(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "api"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "web"), 0o755))
+	writeFile(t, filepath.Join(dir, "api", "package.json"), `{"version": "2.1.0"}`)
+	writeFile(t, filepath.Join(dir, "api", "CHANGELOG.md"), "# CHANGELOG\n\n## 2.1.0 - 2026-09-06\n\n## Features\n- api thing\n")
+	// "web" has no CHANGELOG.md yet: nothing merged for it.
+
+	cfg := config.Default()
+	cfg.Mode = config.ModeMulti
+	cfg.TagFormat = "{{package}}-v{{version}}"
+	cfg.Packages = []config.Package{
+		{Path: "api", Name: "api"},
+		{Path: "web", Name: "web"},
+	}
+
+	fb := &fakeBackend{}
+	var out bytes.Buffer
+
+	err := runPR(context.Background(), dir, cfg, fb, "", &out)
+	require.NoError(t, err)
+
+	require.Len(t, fb.createdReleases, 1)
+	assert.Equal(t, "api-v2.1.0", fb.createdReleases[0].tag)
+}
+
+func TestRunPR_PackageFlagScopesToOnePackage(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "api"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "web"), 0o755))
+	writeFile(t, filepath.Join(dir, "api", "package.json"), `{"version": "2.1.0"}`)
+	writeFile(t, filepath.Join(dir, "api", "CHANGELOG.md"), "# CHANGELOG\n\n## 2.1.0 - 2026-09-06\n\n- api thing\n")
+	writeFile(t, filepath.Join(dir, "web", "package.json"), `{"version": "1.0.0"}`)
+	writeFile(t, filepath.Join(dir, "web", "CHANGELOG.md"), "# CHANGELOG\n\n## 1.0.0 - 2026-09-06\n\n- web thing\n")
+
+	cfg := config.Default()
+	cfg.Mode = config.ModeMulti
+	cfg.Packages = []config.Package{{Path: "api", Name: "api"}, {Path: "web", Name: "web"}}
+	cfg.TagFormat = "{{package}}-v{{version}}"
+
+	fb := &fakeBackend{}
+	var out bytes.Buffer
+
+	err := runPR(context.Background(), dir, cfg, fb, "web", &out)
+	require.NoError(t, err)
+
+	require.Len(t, fb.createdReleases, 1, "--package=web must not touch api")
+	assert.Equal(t, "web-v1.0.0", fb.createdReleases[0].tag)
+}
+
+func TestRunPR_NoMergedChangelogIsNotAnError(t *testing.T) {
+	dir := t.TempDir()
+
+	fb := &fakeBackend{}
+	var out bytes.Buffer
+
+	err := runPR(context.Background(), dir, config.Default(), fb, "", &out)
+	require.NoError(t, err)
+	assert.Empty(t, fb.createdReleases)
+	assert.Contains(t, out.String(), "nothing to publish")
+}
+
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 }

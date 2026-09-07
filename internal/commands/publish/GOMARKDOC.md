@@ -14,7 +14,7 @@ Package publish implements the "publish" command: promote a draft release to pub
 
 
 <a name="New"></a>
-## func [New](<https://github.com/brpaz/draftsman/blob/main/internal/commands/publish/publish.go#L25>)
+## func [New](<https://github.com/brpaz/draftsman/blob/main/internal/commands/publish/publish.go#L29>)
 
 ```go
 func New() *cli.Command

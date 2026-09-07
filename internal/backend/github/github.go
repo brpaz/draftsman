@@ -183,6 +183,13 @@ func (c *Client) CommitURL(sha string) string {
 	return fmt.Sprintf("https://github.com/%s/%s/commit/%s", c.owner, c.repo, sha)
 }
 
+// GitRemoteURL implements backend.Backend. "x-access-token" is GitHub's
+// documented placeholder username for token-based HTTPS auth — GitHub
+// itself only inspects the password field.
+func (c *Client) GitRemoteURL() string {
+	return backend.FormatGitRemoteURL("https://github.com", "x-access-token", c.token, c.owner+"/"+c.repo)
+}
+
 // CompareURL implements backend.Backend.
 func (c *Client) CompareURL(from, to string) string {
 	return fmt.Sprintf("https://github.com/%s/%s/compare/%s...%s", c.owner, c.repo, from, to)
@@ -229,6 +236,163 @@ func (c *Client) ResolveAuthor(ctx context.Context, sha string) (backend.AuthorR
 	}
 
 	return backend.AuthorReference{Login: payload.Author.Login, ProfileURL: payload.Author.HTMLURL}, true, nil
+}
+
+// CreateRelease implements backend.Backend.
+func (c *Client) CreateRelease(ctx context.Context, tag, releaseName, body string) error {
+	fields := map[string]any{
+		"tag_name": tag,
+		"body":     body,
+		"draft":    false,
+	}
+	if releaseName != "" {
+		fields["name"] = releaseName
+	} else {
+		fields["name"] = tag
+	}
+
+	payload, err := json.Marshal(fields)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/repos/%s/%s/releases", c.baseURL, c.owner, c.repo)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	c.setHeaders(httpReq)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusCreated {
+		return unexpectedStatus(resp)
+	}
+	return nil
+}
+
+type pullRequest struct {
+	Number  int    `json:"number"`
+	HTMLURL string `json:"html_url"`
+}
+
+// UpsertReleasePR implements backend.Backend.
+func (c *Client) UpsertReleasePR(ctx context.Context, req backend.UpsertReleasePRRequest) (backend.ReleasePR, error) {
+	existing, err := c.findOpenPR(ctx, req.Branch, req.Base)
+	if err != nil {
+		return backend.ReleasePR{}, fmt.Errorf("finding existing release PR for branch %q: %w", req.Branch, err)
+	}
+	if existing == nil {
+		return c.createPR(ctx, req)
+	}
+	return c.updatePR(ctx, existing.Number, req)
+}
+
+// findOpenPR looks for an open PR whose head is branch and base is
+// req.Base — GitHub's "list pull requests" endpoint filters on both
+// server-side, so at most one result is ever expected back.
+func (c *Client) findOpenPR(ctx context.Context, branch, base string) (*pullRequest, error) {
+	url := fmt.Sprintf("%s/repos/%s/%s/pulls?head=%s:%s&base=%s&state=open", c.baseURL, c.owner, c.repo, c.owner, branch, base)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	c.setHeaders(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, unexpectedStatus(resp)
+	}
+
+	var pulls []pullRequest
+	if err := json.NewDecoder(resp.Body).Decode(&pulls); err != nil {
+		return nil, fmt.Errorf("decoding pulls: %w", err)
+	}
+	if len(pulls) == 0 {
+		return nil, nil
+	}
+	return &pulls[0], nil
+}
+
+func (c *Client) createPR(ctx context.Context, req backend.UpsertReleasePRRequest) (backend.ReleasePR, error) {
+	payload, err := json.Marshal(map[string]any{
+		"title": req.Title,
+		"body":  req.Body,
+		"head":  req.Branch,
+		"base":  req.Base,
+	})
+	if err != nil {
+		return backend.ReleasePR{}, err
+	}
+
+	url := fmt.Sprintf("%s/repos/%s/%s/pulls", c.baseURL, c.owner, c.repo)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+	if err != nil {
+		return backend.ReleasePR{}, err
+	}
+	c.setHeaders(httpReq)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return backend.ReleasePR{}, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusCreated {
+		return backend.ReleasePR{}, unexpectedStatus(resp)
+	}
+
+	var pr pullRequest
+	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
+		return backend.ReleasePR{}, fmt.Errorf("decoding created PR: %w", err)
+	}
+	return backend.ReleasePR{Number: pr.Number, URL: pr.HTMLURL}, nil
+}
+
+func (c *Client) updatePR(ctx context.Context, number int, req backend.UpsertReleasePRRequest) (backend.ReleasePR, error) {
+	payload, err := json.Marshal(map[string]any{
+		"title": req.Title,
+		"body":  req.Body,
+	})
+	if err != nil {
+		return backend.ReleasePR{}, err
+	}
+
+	url := fmt.Sprintf("%s/repos/%s/%s/pulls/%d", c.baseURL, c.owner, c.repo, number)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPatch, url, bytes.NewReader(payload))
+	if err != nil {
+		return backend.ReleasePR{}, err
+	}
+	c.setHeaders(httpReq)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return backend.ReleasePR{}, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return backend.ReleasePR{}, unexpectedStatus(resp)
+	}
+
+	var pr pullRequest
+	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
+		return backend.ReleasePR{}, fmt.Errorf("decoding updated PR: %w", err)
+	}
+	return backend.ReleasePR{Number: pr.Number, URL: pr.HTMLURL}, nil
 }
 
 // findReleaseByTag looks for a release matching tag. GitHub's "get release

@@ -27,6 +27,7 @@ type fakeBackend struct {
 func (f *fakeBackend) UpsertDraft(context.Context, backend.UpsertDraftRequest) error { return nil }
 func (f *fakeBackend) Publish(context.Context, string) error                         { return nil }
 func (f *fakeBackend) CommitURL(sha string) string                                   { return "https://example.com/commit/" + sha }
+
 func (f *fakeBackend) CompareURL(from, to string) string {
 	return "https://example.com/compare/" + from + "..." + to
 }
@@ -41,6 +42,14 @@ func (f *fakeBackend) ResolveAuthor(ctx context.Context, sha string) (backend.Au
 	}
 	return f.resolveAuthor(ctx, sha)
 }
+
+func (f *fakeBackend) UpsertReleasePR(context.Context, backend.UpsertReleasePRRequest) (backend.ReleasePR, error) {
+	return backend.ReleasePR{}, nil
+}
+
+func (f *fakeBackend) GitRemoteURL() string { return "" }
+
+func (f *fakeBackend) CreateRelease(context.Context, string, string, string) error { return nil }
 
 // runGit runs a git subcommand against dir, failing the test on error.
 func runGit(t *testing.T, dir string, args ...string) {

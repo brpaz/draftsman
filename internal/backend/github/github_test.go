@@ -312,6 +312,106 @@ func TestCompareURL_IsGitHubWebLink(t *testing.T) {
 	require.Equal(t, "https://github.com/brpaz/draftsman/compare/v1.0.0...v1.1.0", client.CompareURL("v1.0.0", "v1.1.0"))
 }
 
+func TestCreateRelease_PostsAnAlreadyPublishedRelease(t *testing.T) {
+	var createBody map[string]any
+	created := false
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/repos/brpaz/draftsman/releases":
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&createBody))
+			created = true
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id": 1, "tag_name": "v1.1.0", "draft": false}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := github.New("brpaz", "draftsman", "test-token", github.WithBaseURL(server.URL))
+	err := client.CreateRelease(context.Background(), "v1.1.0", "", "## Features\n- add thing\n")
+	require.NoError(t, err)
+
+	require.True(t, created)
+	assert.Equal(t, "v1.1.0", createBody["tag_name"])
+	assert.Equal(t, "v1.1.0", createBody["name"], "an empty releaseName falls back to the tag")
+	assert.Equal(t, false, createBody["draft"])
+	assert.Equal(t, "## Features\n- add thing\n", createBody["body"])
+}
+
+func TestGitRemoteURL_EmbedsTokenAsXAccessToken(t *testing.T) {
+	client := github.New("brpaz", "draftsman", "test-token", github.WithBaseURL("https://example.invalid"))
+	require.Equal(t, "https://x-access-token:test-token@github.com/brpaz/draftsman.git", client.GitRemoteURL())
+}
+
+func TestUpsertReleasePR_CreatesWhenAbsent(t *testing.T) {
+	var createBody map[string]any
+	created := false
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/brpaz/draftsman/pulls":
+			assert.Equal(t, "brpaz:release/foo", r.URL.Query().Get("head"))
+			assert.Equal(t, "main", r.URL.Query().Get("base"))
+			assert.Equal(t, "open", r.URL.Query().Get("state"))
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`[]`))
+		case r.Method == http.MethodPost && r.URL.Path == "/repos/brpaz/draftsman/pulls":
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&createBody))
+			created = true
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"number": 7, "html_url": "https://github.com/brpaz/draftsman/pull/7"}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := github.New("brpaz", "draftsman", "test-token", github.WithBaseURL(server.URL))
+	pr, err := client.UpsertReleasePR(context.Background(), backend.UpsertReleasePRRequest{
+		Branch: "release/foo", Base: "main", Title: "chore(main): release 1.0.0", Body: "notes",
+	})
+	require.NoError(t, err)
+
+	require.True(t, created)
+	assert.Equal(t, 7, pr.Number)
+	assert.Equal(t, "https://github.com/brpaz/draftsman/pull/7", pr.URL)
+	assert.Equal(t, "release/foo", createBody["head"])
+	assert.Equal(t, "main", createBody["base"])
+}
+
+func TestUpsertReleasePR_UpdatesWhenOpenPRExists(t *testing.T) {
+	var patchBody map[string]any
+	patched := false
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/brpaz/draftsman/pulls":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`[{"number": 7, "html_url": "https://github.com/brpaz/draftsman/pull/7"}]`))
+		case r.Method == http.MethodPatch && r.URL.Path == "/repos/brpaz/draftsman/pulls/7":
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&patchBody))
+			patched = true
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"number": 7, "html_url": "https://github.com/brpaz/draftsman/pull/7"}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := github.New("brpaz", "draftsman", "test-token", github.WithBaseURL(server.URL))
+	pr, err := client.UpsertReleasePR(context.Background(), backend.UpsertReleasePRRequest{
+		Branch: "release/foo", Base: "main", Title: "chore(main): release 1.1.0", Body: "more notes",
+	})
+	require.NoError(t, err)
+
+	require.True(t, patched, "an existing open PR must be updated, not recreated")
+	assert.Equal(t, 7, pr.Number)
+	assert.Equal(t, "more notes", patchBody["body"])
+}
+
 func TestResolveAuthor_LinkedAccount(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/repos/brpaz/draftsman/commits/abc123", r.URL.Path)
