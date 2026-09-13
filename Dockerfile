@@ -1,10 +1,10 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32
 
 # =============================
 # --- Global Build Arguments ---
 # =============================
 ARG GO_VERSION=1.25.4
-ARG ALPINE_VERSION=3.22
+ARG ALPINE_VERSION=3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce
 
 # ==============================
 # --- Dependencies Stage ---
