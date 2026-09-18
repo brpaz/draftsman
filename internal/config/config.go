@@ -59,6 +59,10 @@ type Category struct {
 
 // Package maps a path prefix to a monorepo package name. A commit is
 // attributed to every Package whose Path prefixes one of its changed files.
+// Path "" or "." is a root sentinel instead of a literal prefix: it matches
+// any changed file not claimed by another configured Package's prefix, so a
+// root module can be declared alongside its subpackages without swallowing
+// their commits too.
 type Package struct {
 	Path string `yaml:"path"`
 	Name string `yaml:"name"`

@@ -381,6 +381,37 @@ func TestCompute_MultiPackage_NonOverlappingCommits(t *testing.T) {
 	require.Equal(t, "correct layout", plan.Packages[1].Sections[0].Entries[0].Description)
 }
 
+func TestCompute_RootPackage_CatchesFilesNotUnderAnySubpackage(t *testing.T) {
+	cfg := &config.Config{
+		Categories: config.Default().Categories,
+		Packages: []config.Package{
+			{Path: "", Name: "root"},
+			{Path: "tracing", Name: "tracing"},
+			{Path: "db", Name: "db"},
+		},
+		SkipChangelogTrailer: config.Default().SkipChangelogTrailer,
+		TagFormat:            config.Default().TagFormat,
+		Template:             config.Default().Template,
+	}
+	repo := initRepoAt(t,
+		commitAt{message: "feat: top-level change", files: []string{"main.go"}},
+		commitAt{message: "fix: tracing bug", files: []string{"tracing/span.go"}},
+		commitAt{message: "fix: db bug", files: []string{"db/conn.go"}},
+	)
+
+	plan, err := engine.Compute(context.Background(), repo, cfg, nil)
+	require.NoError(t, err)
+
+	require.Len(t, plan.Packages, 3)
+	require.Equal(t, "root", plan.Packages[0].Name)
+	require.Equal(t, "top-level change", plan.Packages[0].Sections[0].Entries[0].Description,
+		"root package (path \"\") catches files not claimed by tracing or db")
+	require.Equal(t, "tracing", plan.Packages[1].Name)
+	require.Equal(t, "tracing bug", plan.Packages[1].Sections[0].Entries[0].Description)
+	require.Equal(t, "db", plan.Packages[2].Name)
+	require.Equal(t, "db bug", plan.Packages[2].Sections[0].Entries[0].Description)
+}
+
 func TestCompute_CrossCuttingCommitDuplicatesIntoEveryPackage(t *testing.T) {
 	repo := initRepoAt(t,
 		commitAt{
