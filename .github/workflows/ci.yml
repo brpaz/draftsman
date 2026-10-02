@@ -75,7 +75,7 @@ jobs:
           name: test-results
           path: reports/
 
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         if: ${{ !cancelled() }}
         with:
           fail_ci_if_error: false
