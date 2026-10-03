@@ -4,12 +4,11 @@
 # --- Global Build Arguments ---
 # =============================
 ARG GO_VERSION=1.25.4
-ARG ALPINE_VERSION=3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 
 # ==============================
 # --- Dependencies Stage ---
 # ==============================
-FROM golang:${GO_VERSION}-alpine${ALPINE_VERSION} AS dependencies
+FROM golang:${GO_VERSION}-alpine3.22@sha256:d3f0cf7723f3429e3f9ed846243970b20a2de7bae6a5b66fc5914e228d831bbb AS dependencies
 
 WORKDIR /app
 
@@ -23,7 +22,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # ==============================
 # --- Builder Stage ---
 # ==============================
-FROM golang:${GO_VERSION}-alpine${ALPINE_VERSION} AS builder
+FROM golang:${GO_VERSION}-alpine3.22@sha256:d3f0cf7723f3429e3f9ed846243970b20a2de7bae6a5b66fc5914e228d831bbb AS builder
 
 ARG TARGETPLATFORM
 ARG BUILD_DATE
@@ -55,7 +54,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # ==============================
 # --- Development Stage ---
 # ==============================
-FROM golang:${GO_VERSION}-alpine${ALPINE_VERSION} AS development
+FROM golang:${GO_VERSION}-alpine3.22@sha256:d3f0cf7723f3429e3f9ed846243970b20a2de7bae6a5b66fc5914e228d831bbb AS development
 
 ARG GID=1000
 ARG UID=1000
@@ -78,7 +77,7 @@ CMD ["go", "run", "./cmd/draftsman"]
 # ==============================
 # --- Production Stage ---
 # ==============================
-FROM alpine:${ALPINE_VERSION} AS production
+FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS production
 
 ARG BUILD_DATE
 ARG VCS_REF
