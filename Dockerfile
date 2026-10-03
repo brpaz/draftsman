@@ -4,7 +4,7 @@
 # --- Global Build Arguments ---
 # =============================
 ARG GO_VERSION=1.25.4
-ARG ALPINE_VERSION=3.22
+ARG ALPINE_VERSION=3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 
 # ==============================
 # --- Dependencies Stage ---
