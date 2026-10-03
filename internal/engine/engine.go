@@ -270,7 +270,7 @@ func computeMulti(ctx context.Context, repoPath string, cfg *config.Config, be b
 			if err != nil {
 				return nil, fmt.Errorf("resolving changed files for %s: %w", c.SHA, err)
 			}
-			if !anyMatchesPackage(files, pkg.Path) {
+			if !anyMatchesPackage(files, pkg.Path, cfg.Packages) {
 				continue
 			}
 
@@ -488,24 +488,50 @@ func affectedPackages(ctx context.Context, repoPath, sha string, packages []conf
 
 	var names []string
 	for _, pkg := range packages {
-		if anyMatchesPackage(files, pkg.Path) {
+		if anyMatchesPackage(files, pkg.Path, packages) {
 			names = append(names, pkg.Name)
 		}
 	}
 	return names, nil
 }
 
-func anyMatchesPackage(files []string, path string) bool {
+func anyMatchesPackage(files []string, path string, packages []config.Package) bool {
 	for _, f := range files {
-		if matchesPackage(f, path) {
+		if matchesPackage(f, path, packages) {
 			return true
 		}
 	}
 	return false
 }
 
-func matchesPackage(file, path string) bool {
+// isRootPath reports whether path is the sentinel for the repo-root
+// "catch-all" package — "" or "." — as opposed to a literal subdirectory
+// prefix.
+func isRootPath(path string) bool {
+	return path == "" || path == "."
+}
+
+// matchesPackage reports whether file belongs to the package at path. A
+// root path ("" or ".") is not treated as a literal prefix — every file
+// would trivially match it — but as "everything not claimed by another
+// configured package": it matches file unless some other, non-root package
+// in packages already claims it.
+func matchesPackage(file, path string, packages []config.Package) bool {
 	path = strings.TrimSuffix(path, "/")
+
+	if isRootPath(path) {
+		for _, other := range packages {
+			otherPath := strings.TrimSuffix(other.Path, "/")
+			if isRootPath(otherPath) {
+				continue
+			}
+			if file == otherPath || strings.HasPrefix(file, otherPath+"/") {
+				return false
+			}
+		}
+		return true
+	}
+
 	return file == path || strings.HasPrefix(file, path+"/")
 }
 
