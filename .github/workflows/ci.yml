@@ -142,7 +142,7 @@ jobs:
 
 
       - name: Build image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -157,7 +157,7 @@ jobs:
           load: true
 
       - name: Final Build and Push to Registry
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           cache-from: type=gha
           cache-to: type=gha,mode=max
