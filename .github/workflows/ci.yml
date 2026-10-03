@@ -190,7 +190,7 @@ jobs:
           go-version-file: "go.mod"
 
       - name: Run GoReleaser (snapshot)
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         if: github.event_name != 'release'
         with:
           args: release --clean --snapshot
@@ -198,7 +198,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run GoReleaser (release)
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         if: github.event_name == 'release'
         with:
           args: release --clean
