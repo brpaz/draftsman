@@ -29,7 +29,7 @@ GitHub is the only backend with a live API fallback: when a commit's message doe
 
 ## GitHub Action
 
-The composite Action at [`action.yml`](https://github.com/brpaz/draftsman/blob/main/action.yml) wraps the CLI — it downloads the matching prebuilt binary for the runner's OS/arch from the Action's own tagged release, verifies it against `checksums.txt`, and runs it. No separate install step needed.
+The composite Action at [`action.yml`](https://github.com/brpaz/draftsman/blob/main/action.yml) wraps the CLI — it downloads the matching prebuilt binary for the runner's OS/arch from the Action's own tagged release (resolved from the tag, or from the commit SHA when the Action is pinned by digest), verifies it against `checksums.txt`, and runs it. No separate install step needed.
 
 | Input | Required | Notes |
 | --- | --- | --- |
@@ -39,6 +39,7 @@ The composite Action at [`action.yml`](https://github.com/brpaz/draftsman/blob/m
 | `config-path` | no | Defaults to draftsman's own resolution (`.draftsman.yml`, or built-ins). |
 | `package` | no | Multi mode only. |
 | `version` | no | `publish` only — overrides the computed suggestion. |
+| `draftsman-version` | no | Release tag of the binary to install (e.g. `v0.3.0`). Defaults to the tag the Action is pinned to; when pinned by commit SHA, the release tag at that commit is used. |
 
 `--repo` needs no input at all — the Action relies on `GITHUB_REPOSITORY`, which every GitHub Actions runner sets automatically.
 
