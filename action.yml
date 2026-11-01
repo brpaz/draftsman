@@ -30,6 +30,10 @@ inputs:
     description: "Override the auto-computed version. Only used by the publish command."
     required: false
     default: ""
+  draftsman-version:
+    description: "Release tag of the draftsman binary to install (e.g. v0.3.0). Defaults to the tag the Action itself is pinned to; when the Action is pinned by commit SHA, the release tag pointing at that commit is used."
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -39,12 +43,26 @@ runs:
       env:
         DRAFTSMAN_ACTION_REPO: ${{ github.action_repository }}
         DRAFTSMAN_ACTION_REF: ${{ github.action_ref }}
+        INPUT_DRAFTSMAN_VERSION: ${{ inputs.draftsman-version }}
       run: |
         set -euo pipefail
 
         if [ -z "${DRAFTSMAN_ACTION_REPO:-}" ] || [ -z "${DRAFTSMAN_ACTION_REF:-}" ]; then
           echo "::error::could not determine the Action's own repo/ref (github.action_repository / github.action_ref) — this Action must be invoked as 'uses: owner/repo@tag', not from a local checkout" >&2
           exit 1
+        fi
+
+        tag="${INPUT_DRAFTSMAN_VERSION:-$DRAFTSMAN_ACTION_REF}"
+        if printf '%s' "$tag" | grep -Eq '^[0-9a-f]{40}$'; then
+          # Pinned by commit SHA: release assets live under the tag, not the SHA.
+          sha="$tag"
+          tag="$(git ls-remote --tags "https://github.com/${DRAFTSMAN_ACTION_REPO}.git" |
+            awk -v sha="$sha" '$1 == sha { sub("refs/tags/", "", $2); sub(/\^\{\}$/, "", $2); print $2 }' |
+            grep -E '^v[0-9]' | sort -V | tail -n1 || true)"
+          if [ -z "$tag" ]; then
+            echo "::error::no release tag points at ${sha}; pin the Action to a release commit or set the draftsman-version input" >&2
+            exit 1
+          fi
         fi
 
         case "$(uname -s)" in
@@ -62,14 +80,14 @@ runs:
         esac
 
         asset="draftsman_${os}_${arch}.tar.gz"
-        base_url="https://github.com/${DRAFTSMAN_ACTION_REPO}/releases/download/${DRAFTSMAN_ACTION_REF}"
+        base_url="https://github.com/${DRAFTSMAN_ACTION_REPO}/releases/download/${tag}"
 
         # Must survive past this step: it's added to $GITHUB_PATH below so
         # the "Run draftsman" step can find the binary there. The runner
         # reclaims the whole job workspace once the job ends.
         workdir="$(mktemp -d)"
 
-        echo "::group::Downloading ${asset} (${DRAFTSMAN_ACTION_REPO}@${DRAFTSMAN_ACTION_REF})"
+        echo "::group::Downloading ${asset} (${DRAFTSMAN_ACTION_REPO}@${tag})"
         curl -sSfL -o "${workdir}/${asset}" "${base_url}/${asset}"
         curl -sSfL -o "${workdir}/checksums.txt" "${base_url}/checksums.txt"
         echo "::endgroup::"
