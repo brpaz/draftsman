@@ -22,7 +22,7 @@
 
           src = ./.;
 
-          vendorHash = "sha256-25wKUiDzzzsenBCw2Z+aeyqOlXfMnw4opvjPeDJVM8o=";
+          vendorHash = "sha256-q5snd8/9P0jgWcUbDmli5+XDXDP7sI1hBpmF1J11OWo=";
 
           subPackages = ["cmd/draftsman"];
 
